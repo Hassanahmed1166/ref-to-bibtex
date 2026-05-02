@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Ref → BibTeX</title>
+  <link rel="stylesheet" href="style.css"/>
+</head>
+<body>
+  <div class="bg-grid"></div>
+
+  <main>
+    <header>
+      <div class="logo-mark">
+        <span class="bracket">[</span><span class="num">1</span><span class="bracket">]</span>
+      </div>
+      <div class="header-text">
+        <h1>Ref <span class="arrow">→</span> BibTeX</h1>
+        <p class="tagline">
+          Paste numbered references — fetches full metadata from
+          <span class="badge">Crossref</span> &amp; <span class="badge">Semantic Scholar</span>,
+          falls back to local parsing.
+        </p>
+      </div>
+    </header>
+
+    <section class="card input-card">
+      <label for="refInput">
+        <span class="label-icon">⬇</span> Paste References
+      </label>
+      <textarea
+        id="refInput"
+        placeholder="[1]   S. Li, L. Da Xu, and S. Zhao, &quot;5G internet of things: A survey,&quot; Journal of Industrial Information Integration, 2018.
+[2]   M. Dumas et al., Fundamentals of business process management. Springer, 2013.
+..."
+        spellcheck="false"
+      ></textarea>
+      <div class="input-actions">
+        <button class="btn-ghost" id="clearBtn">Clear</button>
+        <button class="btn-primary" id="convertBtn">
+          <span>Fetch &amp; Convert</span>
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+            <path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </button>
+      </div>
+    </section>
+
+    <!-- Progress panel -->
+    <section class="card progress-card" id="progressSection" style="display:none">
+      <div class="progress-header">
+        <span class="pulse-dot"></span>
+        <span id="progressLabel">Looking up references…</span>
+      </div>
+      <div id="progressList" class="progress-list"></div>
+      <div class="progress-bar-wrap">
+        <div class="progress-bar-fill" id="progressBarFill"></div>
+      </div>
+    </section>
+
+    <!-- Output -->
+    <section class="card output-card" id="outputSection" style="display:none">
+      <div class="output-header">
+        <label><span class="label-icon">⬆</span> BibTeX Output</label>
+        <div class="output-actions">
+          <button class="btn-ghost small" id="copyBtn">Copy</button>
+          <button class="btn-primary small" id="downloadBtn">
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+              <path d="M8 3v8M4 7l4 4 4-4M3 13h10" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            Download .bib
+          </button>
+        </div>
+      </div>
+      <pre id="bibOutput"></pre>
+      <div id="statsBar" class="stats-bar"></div>
+    </section>
+
+    <section class="card error-card" id="errorSection" style="display:none">
+      <div class="error-icon">!</div>
+      <p id="errorMsg"></p>
+    </section>
+  </main>
+
+  <footer>
+    <p>Metadata sourced from Crossref · Semantic Scholar · local parser fallback</p>
+  </footer>
+
+  <div id="toast" class="toast"></div>
+
+  <script src="parser.js"></script>
+  <script src="lookup.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
