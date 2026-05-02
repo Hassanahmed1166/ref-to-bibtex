@@ -71,7 +71,7 @@ Click **Fetch & Convert** and get a ready-to-use `.bib` file:
 
 ### Option 1 — Use the live demo
 
-Just open **[https://YOUR-USERNAME.github.io/ref-to-bibtex](https://hassanahmed1166.github.io/ref-to-bibtex/)** in your browser. Nothing to install.
+Just open **[https://hassanahmed1166.github.io/ref-to-bibtex/](https://hassanahmed1166.github.io/ref-to-bibtex/)** in your browser. Nothing to install.
 
 ### Option 2 — Run locally
 
