@@ -6,7 +6,7 @@
 ![No dependencies](https://img.shields.io/badge/dependencies-none-brightgreen)
 ![Vanilla JS](https://img.shields.io/badge/built%20with-Vanilla%20JS-f7df1e)
 
-**[▶ Live Demo](https://YOUR-USERNAME.github.io/ref-to-bibtex)**
+**[▶ Live Demo](https://hassanahmed1166.github.io/ref-to-bibtex/)**
 
 ---
 
