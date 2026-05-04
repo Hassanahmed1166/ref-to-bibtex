@@ -1,4 +1,4 @@
-# Ref → BibTeX · AI Source Authenticator & Citation Converter
+# AuthentiCite — Ref → BibTeX · AI Source Authenticator & Citation Converter
 
 > **Verify, authenticate, and convert academic references** — paste any citation format and get clean BibTeX with real-time legitimacy scores, AI hallucination detection, and triple-API cross-verification.
 
@@ -11,7 +11,7 @@
 
 ## What Is This?
 
-**ref→bib** is a browser-based **academic reference verifier, source authenticator, and BibTeX converter** — built for researchers, students, and academics who need to:
+**AuthentiCite** is a browser-based **academic reference verifier, source authenticator, and BibTeX converter** — built for researchers, students, and academics who need to:
 
 - **Verify that cited sources actually exist** before submitting a paper
 - **Detect AI-hallucinated or fabricated references** in manuscripts
@@ -32,7 +32,7 @@ Large language models confidently generate **fake citations** — papers that lo
 - AI-template titles ("A comprehensive review of…", "Towards a framework for…")
 - Plausible-sounding journals that were never published
 
-**This tool cross-references every citation against Crossref, Semantic Scholar, and OpenAlex** in real time — flagging anything that cannot be verified with a clear score and explanation.
+**AuthentiCite cross-references every citation against Crossref, Semantic Scholar, and OpenAlex** in real time — flagging anything that cannot be verified with a clear score and explanation.
 
 ---
 
@@ -49,33 +49,47 @@ Every reference is simultaneously verified against **three independent scholarly
 
 A reference that cannot be found in any of these three sources is flagged with a legitimacy score and a clear explanation of why.
 
-### 🧠 Smart Multi-Strategy Search (v4)
-Unlike naive implementations that give up if the parsed title doesn't match exactly, **ref→bib v4 tries multiple search strategies per reference**:
+### 🧠 Smart Multi-Strategy Search (v4.1)
+Unlike naive implementations that give up if the parsed title doesn't match exactly, **AuthentiCite v4.1 tries multiple search strategies per reference**:
 
 1. **DOI fast-path** — If a DOI is present, all 3 APIs are queried in parallel. Guaranteed exact match.
 2. **arXiv fast-path** — arXiv IDs are resolved directly via Semantic Scholar.
-3. **Parsed title + first author** — Clean extracted metadata is used for targeted search.
-4. **Raw reference string** — The full citation text is sent as a bibliographic query (Crossref is optimized for this).
+3. **Parsed title + first author** — Clean extracted metadata used for targeted search.
+4. **Raw reference string** — Full citation text sent as a bibliographic query (Crossref is optimised for this).
 5. **Title-only search** — In case author/year noise muddles the query.
-6. **Author + year fallback** — Last resort for minimally-structured references.
+6. **After-year title extraction** — For Harvard/abbreviated styles, the title segment after `(year).` is extracted and queried independently.
+7. **Author + year fallback** — Last resort for minimally-structured references.
 
 All three APIs are queried **in parallel** for each strategy — dramatically reducing wait times.
+
+### 📄 Expanded Format Support (v4.1 fix)
+v4.1 adds correct splitting and parsing of **abbreviated initials-first** style references — the format used in many statistics, operations research, and sports science journals:
+
+```
+S. Akhtar and P. Scarf. Forecasting test cricket match outcomes in play.
+International Journal of Forecasting, 28(3):632–643, 2012.
+
+P. E. Allsopp and S. R. Clarke. Rating teams and analyzing outcomes in one-day
+and test cricket. Journal of the Royal Statistical Society: Series A, 167(4):657–667, 2004.
+```
+
+Previously, soft-wrapped references in this format were merged into a single entry. v4.1 correctly detects each new reference boundary and joins continuation lines before parsing.
 
 ### 🔤 Semantic Abbreviation Expansion
 Academic citations routinely use abbreviations that break naive string matching. v4 expands them before comparison:
 
 ```
-"UAVs" ↔ "Unmanned Aerial Vehicles"
-"IoT"  ↔ "Internet of Things"
-"NLP"  ↔ "Natural Language Processing"
-"IDS"  ↔ "Intrusion Detection System"
-"MANET" ↔ "Mobile Ad Hoc Network"
+"UAVs"  ↔  "Unmanned Aerial Vehicles"
+"IoT"   ↔  "Internet of Things"
+"NLP"   ↔  "Natural Language Processing"
+"IDS"   ↔  "Intrusion Detection System"
+"MANET" ↔  "Mobile Ad Hoc Network"
 ```
 
 50+ domain-specific mappings covering CS, networking, AI/ML, and engineering.
 
 ### 🤖 AI Hallucination Detection
-Every reference title is analyzed for patterns that appear overwhelmingly in LLM-generated (fake) citations:
+Every reference title is analysed for patterns that appear overwhelmingly in LLM-generated (fake) citations:
 
 - `"A comprehensive/systematic review of…"` — AI survey template
 - `"Exploring the role/impact/effect of…"` — AI causal study template
@@ -122,6 +136,7 @@ Paste references in **any format** — even mixed — in a single paste:
 | **Chicago** | `Shakhatreh, Hazim. 2019. "Unmanned Aerial Vehicles." IEEE Access 7: 48572–48634.` |
 | **Vancouver** | `1. Shakhatreh H et al. Unmanned aerial vehicles. IEEE Access. 2019;7:48572–634.` |
 | **Harvard** | `Shakhatreh, H. (2019) 'Unmanned aerial vehicles', IEEE Access, 7, pp. 48572–48634.` |
+| **Abbreviated** | `S. Akhtar and P. Scarf. Forecasting test cricket… Int. J. Forecasting, 28(3):632–643, 2012.` |
 | **Raw/Mixed** | Unstructured text, copy-pasted from PDFs, Google Scholar exports |
 
 ### 🛡️ LLM Structural Validator (Fallback)
@@ -137,7 +152,7 @@ This catches cases where a paper may be too recent, too obscure, or from a confe
 Before any parsing occurs, the input is:
 - Stripped of Word smart quotes (`"` → `"`, `'` → `'`)
 - Cleaned of zero-width Unicode characters (common when copy-pasting from PDFs)
-- Normalized whitespace and line breaks
+- Normalised whitespace and line breaks
 - Scanned for DOIs via regex before any parsing begins (DOI fast-path)
 - Scanned for arXiv IDs (`arXiv:2410.02827`)
 
@@ -155,6 +170,25 @@ Paste your references, click **Convert & Verify**, and get:
 
 ---
 
+## 🌐 Deployment
+
+### Deploy to Vercel (free, recommended)
+
+**Option 1 — Drag & Drop (no CLI needed)**
+1. Go to [vercel.com](https://vercel.com) → sign up free (Hobby plan)
+2. Dashboard → **Add New → Project**
+3. Scroll to **"Deploy from local files"** → drag your project folder
+4. Done — get a live `yourproject.vercel.app` URL instantly with HTTPS
+
+**Option 2 — GitHub auto-deploy**
+1. Push your files to a GitHub repo
+2. Vercel → **Add New → Project → Import Git Repository**
+3. Select repo → Deploy
+4. Every push to `main` triggers an automatic redeploy
+
+
+
+
 ## 📖 How to Use
 
 ### 1. Paste references
@@ -166,6 +200,9 @@ Drop in any number of references — from a reference list, a PDF, Google Schola
 
 Smith, J. (2023). Deep learning for intrusion detection in IoT. IEEE Transactions
     on Services Computing, 16(4), 1800–1815. https://doi.org/10.1109/TSC.2023.XXXX
+
+S. Akhtar and P. Scarf. Forecasting test cricket match outcomes in play.
+    International Journal of Forecasting, 28(3):632–643, 2012.
 
 arXiv:2410.02827
 ```
@@ -183,7 +220,7 @@ Watch real-time progress as each reference is resolved. The strategy used (DOI, 
 - Flagged references appear in the bottom panel with specific reasons
 
 ### 5. Export
-Copy to clipboard or download as `references.bib`.
+Copy to clipboard or download as `.bib`.
 
 ---
 
@@ -199,25 +236,28 @@ Input (raw reference text)
            │
            ▼
 ┌─────────────────────┐
-│  Format Detection   │  IEEE / APA / MLA / Chicago / Vancouver / Harvard / Unknown
+│  Format Detection   │  IEEE / APA / MLA / Chicago / Vancouver / Harvard /
+│                     │  Abbreviated (initials-first) / Unknown
 └──────────┬──────────┘
            │
            ▼
 ┌─────────────────────┐
-│  Query Strategies   │  DOI → arXiv → Title+Author → Raw string → Title-only → Author+Year
+│  Query Strategies   │  DOI → arXiv → Title+Author → Raw string →
+│                     │  Title-only → After-year title → Author+Year
 └──────────┬──────────┘
            │
            ▼
 ┌──────────────────────────────────────────────┐
 │         Parallel API Resolution              │
-│  Crossref ──┐                                │
-│  Semantic Scholar ──┤──→ Best match selected │
-│  OpenAlex ──┘                                │
+│  Crossref ──────────┐                        │
+│  Semantic Scholar ──┼──→ Best match selected │
+│  OpenAlex ──────────┘   (adaptive threshold) │
 └──────────┬───────────────────────────────────┘
            │
            ▼
 ┌─────────────────────┐
 │  Similarity Scoring │  Jaccard + abbreviation expansion + adaptive threshold
+│                     │  (0.38 raw · 0.45 abbreviated · 0.50 short · 0.62 normal)
 └──────────┬──────────┘
            │
            ▼
@@ -236,53 +276,40 @@ Input (raw reference text)
 
 ### Key Design Decisions
 
-**Why lower the Jaccard threshold to 0.45–0.62?**
-The previous threshold of 0.78 was rejecting legitimate references. A title like *"Unmanned aerial vehicles (UAVs): A survey"* scores ~0.05 Jaccard against the full expanded title because the abbreviation "UAVs" matches nothing. After abbreviation expansion, the same comparison scores 0.89.
+**Why lower the Jaccard threshold for raw-strategy queries?**
+When the `isRawStrategy` flag is set, the match threshold drops to 0.38 and the raw query string is used as the match target instead of the (potentially mis-parsed) title field. This is critical for abbreviated/initials-first references where local parsing may extract the wrong title segment.
 
 **Why send the raw string as a query?**
 Crossref's `query.bibliographic` endpoint is specifically designed to accept raw citation strings and return the most likely match. This is more reliable than relying on a correctly-parsed title field when the reference format is unusual.
 
 **Why parallel API calls?**
-Sequential fallback (try Crossref, if fail try Semantic Scholar, if fail try OpenAlex) adds 9–27 seconds per unresolved reference. Parallel calls reduce this to ~3 seconds regardless of how many APIs return results.
+Sequential fallback adds 9–27 seconds per unresolved reference. Parallel calls reduce this to ~3 seconds regardless of how many APIs return results.
 
----
-
-## 🔒 Privacy
-
-- All processing runs **entirely in your browser**
-- References are only sent to: Crossref API, Semantic Scholar API, OpenAlex API (all public, free, no-auth scholarly databases)
-- The LLM structural check calls the Anthropic API (only for references not found in any database)
-- No data is stored, logged, or retained anywhere
-
----
-
-## 📦 File Structure (v4 — single file)
-
-```
-ref-to-bibtex/
-├── ref2bib_v4.html     ← Everything in one file: UI, parser, lookup, verifier
-└── README.md
-```
-
-v4 consolidates all modules into a single self-contained HTML file for easy deployment, GitHub Pages hosting, and offline use.
+**How does soft-wrap joining work?**
+References copied from PDFs often wrap mid-sentence at an arbitrary column. The splitter detects genuine new-reference boundaries (numbered markers, `Lastname, Initial.` patterns, initials-first `S. Author` patterns) and joins continuation lines with a space before any parsing occurs.
 
 ---
 
 ## 🔄 Changelog
 
-### v4 (current) — Smart Multi-Strategy Resolver
-- **Semantic abbreviation expansion** — 50+ academic abbreviation mappings (UAV, IoT, IDS, MANET, NLP, etc.)
-- **Adaptive similarity thresholds** — 0.45 for abbreviated titles, 0.50 for short titles, 0.62 for regular
-- **Multi-strategy parallel search** — 6 query strategies × 3 APIs = up to 18 lookup paths per reference
-- **Raw string search** — sends full citation text to Crossref's bibliographic query endpoint
-- **arXiv fast-path** — direct resolution via Semantic Scholar
-- **Best-candidate selection** — when multiple APIs respond, picks highest-similarity result
-- **Smart preprocessing** — strips Word artifacts, zero-width chars, normalizes encoding
-- **Single-file architecture** — all modules consolidated into `ref2bib_v4.html`
+### v4.1 (current) — Parsing Robustness & API Fix
+- **Initials-first reference splitting** — correctly splits soft-wrapped abbreviated style (`S. Akhtar and P. Scarf. Title...`) into individual references; previously the entire block was parsed as one entry
+- **`isRawStrategy` parameter fix** — `crossrefByQuery`, `semanticByQuery`, and `openAlexByQuery` now correctly receive and apply the raw-strategy flag, lowering the match threshold to 0.38 and using the raw query as the similarity target (previously the flag was silently ignored, causing legitimate references to be rejected)
+- **After-year title extraction** — for Harvard/abbreviated style, the title segment after `(YYYY).` is extracted as an additional query strategy
+- **`detectFormat` improvement** — initials-first abbreviated style is now routed to the IEEE unquoted parser instead of the generic fallback
+
+### v4.0 — Smart Multi-Strategy Resolver
+- Semantic abbreviation expansion — 50+ academic abbreviation mappings
+- Adaptive similarity thresholds — 0.45 / 0.50 / 0.62 by title type
+- Multi-strategy parallel search — 6 strategies × 3 APIs = up to 18 lookup paths per reference
+- Raw string search — full citation text to Crossref's bibliographic query endpoint
+- arXiv fast-path — direct resolution via Semantic Scholar
+- Best-candidate selection — when multiple APIs respond, picks highest-similarity result
+- Single-file architecture — all modules consolidated into one HTML file
 
 ### v3
 - IEEE-specific fixes: blank `no.` field, journal extraction, quarter/season notation
-- KNOWN_LEGITIMATE_VENUES expanded with IEEE/ACM abbreviated names
+- `KNOWN_LEGITIMATE_VENUES` expanded with IEEE/ACM abbreviated names
 - LLM structural validator added for local fallbacks
 - OpenAlex added as third API source
 
@@ -300,27 +327,41 @@ v4 consolidates all modules into a single self-contained HTML file for easy depl
 
 ## 🧪 Example: Real vs. Fake References
 
-### ✅ Legitimate reference (all 4 from your test pass in v4)
+### ✅ Legitimate references
+
 ```
-[1] Hazim Shakhatreh, Ahmad H Sawalmeh, AlaAl-Fuqaha et al. Unmanned aerial 
-    vehicles (uavs): A survey on civil applications and key research challenges. 
+[1] Hazim Shakhatreh, Ahmad H Sawalmeh, Ala Al-Fuqaha et al. Unmanned aerial
+    vehicles (uavs): A survey on civil applications and key research challenges.
     IEEE access, 7:48572–48634, 2019.
 ```
 **Result:** `✔ 91% · via Crossref · strategy: raw reference string`
 
 ```
-[3] Abdulaziz A Alzubaidi. Systematic literature review for detecting intrusions 
-    in unmanned aerial vehicles using machine and deep learning. IEEE Access, 2025.
+S. Akhtar and P. Scarf. Forecasting test cricket match outcomes in play.
+International Journal of Forecasting, 28(3):632–643, 2012.
 ```
-**Result:** `✔ 83% · via Semantic Scholar · strategy: title + author`
+**Result:** `✔ 88% · via Crossref · strategy: raw reference string`
 
 ### ❌ AI-hallucinated reference (correctly flagged)
+
 ```
-[X] John Smith, "Exploring the Role of Deep Learning in Enhancing Cybersecurity 
-    Frameworks: A Comprehensive Review," International Journal of Advanced 
+[X] John Smith, "Exploring the Role of Deep Learning in Enhancing Cybersecurity
+    Frameworks: A Comprehensive Review," International Journal of Advanced
     Innovative Research, vol. 12, no. 4, pp. 1–15, 2023.
 ```
 **Result:** `✕ FAKE · Not found in any API · AI template: "Exploring the role of" · Predatory journal pattern`
+
+---
+
+## 🔒 Privacy
+
+- All processing runs **entirely in your browser**
+- References are only sent to: Crossref API, Semantic Scholar API, OpenAlex API (all public, free, no-auth scholarly databases)
+- The LLM structural check calls the Anthropic API (only for references not found in any database)
+- No data is stored, logged, or retained anywhere
+
+---
+
 
 ---
 
@@ -329,7 +370,7 @@ v4 consolidates all modules into a single self-contained HTML file for easy depl
 Issues, PRs, and feature requests are welcome. Areas for improvement:
 - Additional abbreviation mappings (`ABBREV_MAP` in the source)
 - Additional known-legitimate venue patterns (`KNOWN_LEGITIMATE_VENUES`)
-- Additional citation format parsers
+- Additional citation format parsers (e.g. better NLM/PubMed style support)
 - Better handling of non-English references
 
 ---
