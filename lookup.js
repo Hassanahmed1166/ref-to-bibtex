@@ -34,7 +34,16 @@ async function lookupCrossref(title, year, authors) {
 }
 
 function crossrefItemToBibtex(item) {
-  const type = crossrefType(item.type, item);
+  const TYPE_MAP = {'journal-article':'article','book':'book','book-chapter':'incollection','proceedings-article':'inproceedings','conference-paper':'inproceedings','monograph':'book','edited-book':'book','report':'techreport','dissertation':'phdthesis'};
+  let type = TYPE_MAP[item.type] || null;
+  if (!type) {
+    const containerTitle = item['container-title']?.[0] || '';
+    const hasEvent = !!(item?.event?.name);
+    if (item.volume || item.issue || (containerTitle && !/conference|proceedings|workshop|symposium/i.test(containerTitle))) type = 'article';
+    else if (hasEvent || /conference|proceedings|workshop|symposium/i.test(containerTitle)) type = 'inproceedings';
+    else if (item.publisher && !item.volume) type = 'book';
+    else type = 'misc';
+  }
   const authors = (item.author || []).map(a => {
     const given = a.given || '';
     const family = a.family || '';
@@ -51,10 +60,11 @@ function crossrefItemToBibtex(item) {
   const pages = (item.page || '').replace('--', '-');
   const volume = item.volume || '';
   const number = item.issue || '';
-  const journal = item['container-title']?.[0] || '';
+  const containerTitle = item['container-title']?.[0] || '';
+  const journal = type === 'article' ? containerTitle : '';
   const publisher = item.publisher || '';
   const booktitle = (type === 'inproceedings' || type === 'incollection')
-    ? (item['container-title']?.[0] || item?.event?.name || '')
+    ? (containerTitle || item?.event?.name || '')
     : '';
 
   const editors = (item.editor || []).map(e => {
@@ -70,18 +80,7 @@ function crossrefItemToBibtex(item) {
   };
 }
 
-function crossrefType(crType, item) {
-  switch (crType) {
-    case 'journal-article': return 'article';
-    case 'book': return 'book';
-    case 'book-chapter': return 'incollection';
-    case 'proceedings-article':
-    case 'conference-paper': return 'inproceedings';
-    case 'monograph': return 'book';
-    case 'edited-book': return 'book';
-    default: return 'misc';
-  }
-}
+
 
 // ── Semantic Scholar ────────────────────────────────────────────────────────
 
@@ -125,8 +124,10 @@ function semanticPaperToBibtex(paper) {
   else if (types.includes('Conference') || types.includes('ConferencePaper')) type = 'inproceedings';
   else if (types.includes('Book')) type = 'book';
   else if (types.includes('BookSection')) type = 'incollection';
+  // Field-evidence fallback
   else if (paper.journal?.name) type = 'article';
-  else if (paper.venue) type = 'inproceedings';
+  else if (paper.venue && /conference|proceedings|workshop|symposium/i.test(paper.venue)) type = 'inproceedings';
+  else if (paper.venue) type = 'article'; // venue present but not conference-sounding → journal article
 
   const doi = paper.externalIds?.DOI || '';
   const journal = type === 'article' ? (paper.journal?.name || paper.venue || '') : '';
@@ -139,7 +140,7 @@ function semanticPaperToBibtex(paper) {
     journal, booktitle,
     publisher: '', year: paper.year?.toString() || '',
     volume: paper.journal?.volume || '',
-    number: paper.journal?.pages ? '' : '',
+    number: '',
     pages: paper.journal?.pages || '',
     editor: '', doi,
     address: '', note: '', organization: ''

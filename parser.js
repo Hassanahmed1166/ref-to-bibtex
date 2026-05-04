@@ -3,19 +3,65 @@
  */
 
 function splitReferences(raw) {
-  const lines = raw.split('\n');
+  // PASS 0 — unicode / whitespace normalisation
+  raw = raw
+    .replace(/[\u2018\u2019]/g, "'").replace(/[\u201C\u201D]/g, '"')
+    .replace(/\u2013|\u2014/g, '-').replace(/[\u200B-\u200D\uFEFF]/g, '')
+    .replace(/\t/g, ' ').replace(/[ ]+/g, ' ').replace(/ +\n/g, '\n');
+
+  const rawLines = raw.split('\n');
+
+  // Detect dominant marker style
+  const firstNonBlank = rawLines.find(l => l.trim().length > 3) || '';
+  const hasNumberedMarker = /^\s*\[\d+\]/.test(firstNonBlank) || /^\s*\d+[\. )]\s+\S/.test(firstNonBlank);
+
+  function isRefStart(line) {
+    const t = line.trim();
+    if (!t) return false;
+    if (/^\[\d+\]/.test(t)) return true;
+    if (/^\d{1,3}[\. )]\s+\S/.test(t)) return true;
+    if (/^https?:\/\/doi\.org\//.test(t) || /^10\.\d{4,9}\//.test(t)) return true;
+    if (!hasNumberedMarker) {
+      if (/^[A-Z][A-Za-z'\-]{1,25},\s+[A-Z]/.test(t) && /\(\d{4}[a-z]?\)/.test(t)) return true;
+    }
+    return false;
+  }
+
+  // PASS 1 — join soft-wrapped continuation lines
+  const logicalLines = [];
+  let buf = '';
+  for (const line of rawLines) {
+    const trimmed = line.trim();
+    if (trimmed === '') {
+      if (buf) { logicalLines.push(buf); buf = ''; }
+      logicalLines.push('');
+    } else if (isRefStart(line)) {
+      if (buf) logicalLines.push(buf);
+      buf = trimmed;
+    } else if (buf === '') {
+      buf = trimmed;
+    } else {
+      buf += ' ' + trimmed;
+    }
+  }
+  if (buf) logicalLines.push(buf);
+
+  // PASS 2 — split into individual reference strings
   const refs = [];
   let current = '';
-  for (const line of lines) {
-    if (/^\s*\[\d+\]/.test(line)) {
+  for (const lline of logicalLines) {
+    if (lline === '') {
+      if (current.trim()) { refs.push(current.trim()); current = ''; }
+    } else if (isRefStart(lline)) {
       if (current.trim()) refs.push(current.trim());
-      current = line;
+      current = lline;
     } else {
-      current += ' ' + line;
+      current += current ? ' ' + lline : lline;
     }
   }
   if (current.trim()) refs.push(current.trim());
-  return refs;
+
+  return refs.map(r => r.replace(/\s+/g, ' ').trim()).filter(r => r.length > 10);
 }
 
 function parseAuthors(block) {
