@@ -4,7 +4,9 @@
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>About — AuthentiCite</title>
+<link rel="icon" href="favicon.png"/>
 <link rel="stylesheet" href="style.css"/>
+<script src="js/theme.js"></script>
 <style>
   /* Additional styles for new dynamic components */
   .social-links {
@@ -158,23 +160,23 @@
       <h2>About Me</h2>
       <p>I am Hassan Ahmed, a Computer Science Researcher and Instructor at FAST-National University of Computer and Emerging Sciences, CFD Campus, Pakistan. I hold a Master's degree in Computer Science, focusing on Artificial Intelligence, Deep Learning, Explainable AI (XAI), Cybersecurity, Network Security, Natural Language Processing, and Large Language Models.</p>
       <p>My research involves developing secure, transparent, and reliable AI models suitable for high-stakes domains such as smart cities, healthcare, autonomous systems, and digital security. I focus on bridging theoretical foundations with application by integrating machine learning methods into practical solutions for real-world challenges. Alongside my research, I instruct and mentor students in computer science, AI, and cybersecurity.</p>
-      <p>AuthentiCite was developed to address the systemic issue of AI-hallucinated citations in research bibliographies. The tool verifies structural plausibility and converts references accurately to improve citation integrity, making academic workflows more rigorous and reliable.</p>
+      <p>AuthentiCite was developed to address the systemic issue of AI-hallucinated citations in research bibliographies. The tool checks references against open scholarly databases and converts them accurately to improve citation integrity, making academic workflows more rigorous and reliable.</p>
     </div>
   </div>
 
   <!-- Animated Statistics Section -->
   <div class="card" style="margin-bottom:20px;">
     <div class="about-section" style="margin-bottom:0">
-      <h2>Platform Analytics</h2>
-      <p>AuthentiCite operates globally, verifying academic integrity for researchers and institutions.</p>
+      <h2>Your usage</h2>
+      <p>Counts for this browser only. Nothing is sent anywhere.</p>
       <div class="stats-container">
         <div class="stat-card">
-          <div class="stat-value loading" id="visitorCount">Loading...</div>
-          <div class="stat-label">Profile & Tool Visitors</div>
+          <div class="stat-value loading" id="visitorCount">0</div>
+          <div class="stat-label">References checked</div>
         </div>
         <div class="stat-card">
-          <div class="stat-value loading" id="verifiedCount">Loading...</div>
-          <div class="stat-label">Citations Processed</div>
+          <div class="stat-value loading" id="verifiedCount">0</div>
+          <div class="stat-label">Matched to a database record</div>
         </div>
       </div>
     </div>
@@ -184,8 +186,8 @@
   <div class="card" style="margin-bottom:20px">
     <div class="about-section" style="margin-bottom:0">
       <h2>About AuthentiCite</h2>
-      <p>AuthentiCite is an intelligent reference resolver and verifier. It converts plain-text citations in any format into clean BibTeX entries — and flags references that look suspicious or AI-generated before they make it into your manuscript.</p>
-      <p>Version 4 introduces multi-strategy parallel API search, semantic abbreviation expansion, and a dedicated AI hallucination detector that catches fabricated papers at the title level.</p>
+      <p>AuthentiCite is an intelligent reference resolver and verifier. It converts plain-text citations in any format into clean BibTeX entries — and flags references that cannot be confirmed before they make it into your manuscript.</p>
+      <p>Each reference is matched against Crossref, OpenAlex and Semantic Scholar and scored on title, authors and year. Anything that cannot be matched is flagged for a human to check — it is a hint, not proof that a paper is fake. Every result is shown side by side with the BibTeX so you can confirm it.</p>
 
       <div class="feature-grid">
         <div class="feature-card">
@@ -267,82 +269,12 @@
 </footer>
 
 <script>
-// Theme Management
-function applyTheme(t){
-  document.documentElement.setAttribute('data-theme',t);
-  document.getElementById('themeBtn').textContent=t==='dark'?'☀️ Light':'🌙 Dark';
-  try{localStorage.setItem('authenticite-theme',t);}catch(_){}
-}
-
-(function(){
-  try{
-    const s=localStorage.getItem('authenticite-theme');
-    applyTheme(s==='light'?'light':'dark');
-  }catch(_){
-    applyTheme('dark');
-  }
+// Usage stats are kept locally in this browser (written by the converter) — no third-party counters.
+(function () {
+  var st = {}; try { st = JSON.parse(localStorage.getItem('ac-stats') || '{}'); } catch (_) {}
+  function put(id, v) { var e = document.getElementById(id); if (e) { e.classList.remove('loading'); e.textContent = (v || 0).toLocaleString(); } }
+  put('visitorCount', st.refs); put('verifiedCount', st.verified);
 })();
-
-document.getElementById('themeBtn').addEventListener('click',()=>
-  applyTheme(document.documentElement.getAttribute('data-theme')==='dark'?'light':'dark')
-);
-
-// Sexy Stats Counter Animation
-function animateValue(obj, start, end, duration, formatFn = null) {
-  obj.classList.remove('loading');
-  let startTimestamp = null;
-  const step = (timestamp) => {
-    if (!startTimestamp) startTimestamp = timestamp;
-    const progress = Math.min((timestamp - startTimestamp) / duration, 1);
-    const easeProgress = progress === 1 ? 1 : 1 - Math.pow(2, -10 * progress);
-    
-    let currentValue = Math.floor(easeProgress * (end - start) + start);
-    obj.innerHTML = formatFn ? formatFn(currentValue) : currentValue.toLocaleString();
-    
-    if (progress < 1) {
-      window.requestAnimationFrame(step);
-    } else {
-      obj.innerHTML = formatFn ? formatFn(end) : end.toLocaleString();
-    }
-  };
-  window.requestAnimationFrame(step);
-}
-
-// Fetch realtime analytics data using CounterAPI.dev (a free counting API)
-async function fetchRealtimeAnalytics() {
-  const visitorEl = document.getElementById('visitorCount');
-  const verifiedEl = document.getElementById('verifiedCount');
-
-  try {
-    // 1. Fetch true live visitor count
-    const visitRes = await fetch('https://api.counterapi.dev/v1/authenticite/visitors/up');
-    const visitData = await visitRes.json();
-    const liveVisitors = visitData.count || 0;
-
-    // 2. Fetch true live citations processed count
-    const citationRes = await fetch('https://api.counterapi.dev/v1/authenticite/citations/up');
-    const citationData = await citationRes.json();
-    const liveCitations = citationData.count || 0;
-
-    if(visitorEl) animateValue(visitorEl, 0, liveVisitors, 2000, (val) => val.toLocaleString());
-    if(verifiedEl) animateValue(verifiedEl, 0, liveCitations, 2000, (val) => val.toLocaleString());
-
-  } catch (error) {
-    console.warn("Real-time API unavailable.", error);
-    if(visitorEl) {
-      visitorEl.classList.remove('loading');
-      visitorEl.innerHTML = "Unavailable";
-    }
-    if(verifiedEl) {
-      verifiedEl.classList.remove('loading');
-      verifiedEl.innerHTML = "Unavailable";
-    }
-  }
-}
-
-document.addEventListener("DOMContentLoaded", () => {
-  fetchRealtimeAnalytics();
-});
 </script>
 </body>
 </html>

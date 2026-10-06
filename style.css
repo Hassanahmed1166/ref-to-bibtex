@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=JetBrains+Mono:wght@300;400;500;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&family=JetBrains+Mono:wght@400;500;600&display=swap');
 
 :root {
   --navy:        #003865;
@@ -100,7 +100,7 @@ label{display:block;font-size:.82rem;font-weight:600;color:var(--text);margin-bo
 .format-hint{font-size:.73rem;color:var(--text-muted);margin-top:8px;line-height:1.5;font-style:italic;min-height:1.2em}
 
 /* PROGRESS */
-section.hidden{display:none!important}
+[hidden],.hidden{display:none!important}
 .progress-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
 .progress-label{font-size:.82rem;color:var(--text-muted)}
 .progress-bar{background:var(--surface3);border-radius:4px;height:4px;overflow:hidden;margin-bottom:18px}
@@ -236,7 +236,9 @@ pre.bib-output-pre{background:var(--surface2);padding:16px;font-size:.78rem;over
 .footer-links a:hover{color:var(--action)}
 
 @media(max-width:600px){
-  .topnav{padding:0 16px;height:52px}
+  .topnav{padding:6px 12px;height:auto;min-height:52px;flex-wrap:wrap;row-gap:2px}
+  .nav-link{padding:6px 9px;font-size:.8rem}
+  .nav-links{flex-wrap:wrap;justify-content:flex-end}
   .hero{padding:36px 16px 24px}
   .card{padding:16px}
   .btn{padding:9px 16px;font-size:.82rem}
@@ -244,3 +246,8 @@ pre.bib-output-pre{background:var(--surface2);padding:16px;font-size:.78rem;over
   .site-footer{flex-direction:column;text-align:center}
   .footer-links{justify-content:center}
 }
+/* a11y: visible keyboard focus + reduced motion */
+:focus-visible{outline:2px solid var(--action);outline-offset:2px;border-radius:4px}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;transition-duration:.01ms!important;scroll-behavior:auto!important}}
+.skip-link{position:absolute;left:-999px;top:8px;background:var(--action);color:#fff;padding:8px 14px;border-radius:6px;z-index:200}
+.skip-link:focus{left:8px}

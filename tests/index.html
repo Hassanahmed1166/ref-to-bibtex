@@ -1,0 +1,11 @@
+<!DOCTYPE html>
+<meta charset="utf-8"><title>AuthentiCite tests</title>
+<body style="font:14px monospace;padding:16px"><h3>AuthentiCite unit tests</h3><pre id="out"></pre>
+<script>
+// load in order, cache-busted so edits are always picked up
+(async function () {
+  for (const f of ['parser', 'bibtex', 'match', 'lookup'].map(n => '../js/' + n + '.js').concat('tests.js')) {
+    await new Promise(r => { const s = document.createElement('script'); s.src = f + '?t=' + Date.now(); s.onload = r; document.body.appendChild(s); });
+  }
+})();
+</script>
