@@ -4,121 +4,140 @@
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>AuthentiCite — Verify, Authenticate, Convert</title>
+<meta name="description" content="Paste references in any style, get verified BibTeX, and check every entry side by side against your original text."/>
+<link rel="icon" href="favicon.png"/>
 <link rel="stylesheet" href="style.css"/>
+<link rel="stylesheet" href="css/converter.css"/>
+<script src="js/theme.js"></script>
 </head>
 <body>
+<a class="skip-link" href="#refInput">Skip to input</a>
 
-<nav class="topnav">
+<nav class="topnav" aria-label="Main">
   <a class="nav-logo" href="index.html">
-    <img src="logo.png" alt="AuthentiCite logo"/>
+    <img src="logo.png" alt="" width="40" height="28"/>
     <div>
       <div class="nav-logo-text">AuthentiCite</div>
       <div class="nav-logo-sub">Verify · Authenticate · Convert</div>
     </div>
   </a>
   <div class="nav-links">
-    <a class="nav-link active" href="index.html">Converter</a>
+    <a class="nav-link active" href="index.html" aria-current="page">Converter</a>
     <a class="nav-link" href="suggestions.html">Suggestions</a>
     <a class="nav-link" href="about.html">About</a>
-    <button class="nav-link theme-btn" id="themeBtn">☀️ Light</button>
+    <button class="nav-link theme-btn" id="themeBtn" type="button">☀ Light</button>
   </div>
 </nav>
 
-<div class="hero">
-  <div class="hero-eyebrow">Reference Resolver v4</div>
+<header class="hero">
+  <div class="hero-eyebrow">Reference resolver</div>
   <h1 class="hero-title">References <span class="arrow">→</span> BibTeX</h1>
-  <p class="hero-sub">Paste any citation format. Smart preprocessing routes each reference through DOI fast-path, multi-strategy API search, and LLM structural fallback — with AI hallucination detection.</p>
-  <div class="hero-badges">
-    <span class="hero-badge">✓ Crossref</span>
-    <span class="hero-badge">✓ Semantic Scholar</span>
-    <span class="hero-badge">✓ OpenAlex</span>
-    <span class="hero-badge">✓ AI Hallucination Detection</span>
-  </div>
-</div>
+  <p class="hero-sub">Paste citations in any style. Each one is matched against Crossref, OpenAlex and Semantic Scholar, then shown <strong>side by side</strong> with its BibTeX so you can confirm it got the right paper.</p>
+</header>
 
-<div class="main">
+<main class="main wide">
 
-  <div class="card">
-    <div class="card-label">Paste references</div>
-    <textarea id="refInput" placeholder="[1] Hazim Shakhatreh et al. Unmanned aerial vehicles (UAVs): A survey... IEEE Access, 7:48572–48634, 2019.&#10;&#10;Smith, J. (2020). Deep learning for NLP. Nature, 580(7803), 456–460.&#10;&#10;Multiple formats supported — IEEE, APA, MLA, Chicago, Vancouver, Harvard, arXiv URLs, DOIs…"></textarea>
-    <div class="format-hint" id="formatHint">Auto-detect mode: each reference is independently classified.</div>
+  <section class="card" aria-labelledby="inLabel">
+    <div class="card-label" id="inLabel">1 · Paste references</div>
+    <textarea id="refInput" rows="8" spellcheck="false" aria-describedby="formatHint"
+      placeholder="[1] K. He, X. Zhang, S. Ren, and J. Sun, &quot;Deep residual learning for image recognition,&quot; in Proc. CVPR, 2016, pp. 770–778.&#10;[2] Y. LeCun, Y. Bengio, and G. Hinton, &quot;Deep learning,&quot; Nature, vol. 521, pp. 436–444, 2015.&#10;&#10;One per line, or separated by blank lines. Numbered, APA, Harvard, MLA, Chicago, Vancouver — or just DOIs."></textarea>
+    <div class="input-meta">
+      <span id="refCount" aria-live="polite">0 references detected</span>
+      <span class="format-hint" id="formatHint"></span>
+    </div>
+
     <div class="toolbar">
-      <button class="btn btn-primary" id="convertBtn"><span>Convert &amp; Verify</span></button>
-      <select class="format-select" id="formatSelect">
-        <option value="auto">Auto-detect format</option>
-        <option value="ieee">IEEE</option>
-        <option value="apa">APA</option>
-        <option value="mla">MLA</option>
-        <option value="chicago">Chicago</option>
-        <option value="vancouver">Vancouver</option>
-        <option value="harvard">Harvard</option>
-      </select>
-      <button class="btn btn-ghost" id="clearBtn">Clear</button>
+      <button class="btn btn-primary" id="convertBtn" type="button"><span>Convert &amp; Verify</span></button>
+      <button class="btn btn-ghost" id="sampleBtn" type="button">Try an example</button>
+      <label class="btn btn-ghost file-btn">Open .txt file<input type="file" id="fileInput" accept=".txt,.md,.bib,.ris,text/plain" hidden></label>
+      <button class="btn btn-ghost" id="clearBtn" type="button">Clear</button>
+      <span class="kbd-hint"><kbd>Ctrl</kbd>+<kbd>Enter</kbd> to run</span>
     </div>
-  </div>
 
-  <!-- Progress -->
-  <div class="card hidden" id="progressSection">
-    <div class="progress-header">
-      <div class="card-label" style="margin:0">Resolving references</div>
-      <span class="progress-label" id="progressLabel"></span>
-    </div>
-    <div class="progress-bar"><div class="progress-bar-fill" id="progressBarFill"></div></div>
-    <div class="progress-list" id="progressList"></div>
-  </div>
-
-  <!-- Error -->
-  <div class="card hidden" id="errorSection">
-    <div class="error-card">
-      <span>⚠</span>
-      <span id="errorMsg"></span>
-    </div>
-  </div>
-
-  <!-- Output -->
-  <div class="card hidden" id="outputSection">
-    <div class="card-label">BibTeX output</div>
-    <div class="stats-bar" id="statsBar"></div>
-    <div class="output-sections" id="outputSections">
-      <!-- Verified section -->
-      <div class="output-section-block" id="verifiedBlock">
-        <div class="output-section-header">
-          <span class="card-label" style="margin:0">Verified References</span>
-          <span class="output-section-badge badge-verified">✔ Verified</span>
-          <span class="output-section-count" id="verifiedCount"></span>
+    <details class="options">
+      <summary>Options</summary>
+      <div class="options-grid">
+        <div class="opt">
+          <label for="formatSelect">Reference style</label>
+          <select id="formatSelect" class="format-select">
+            <option value="auto">Auto-detect (per reference)</option>
+            <option value="ieee">IEEE</option><option value="apa">APA</option><option value="mla">MLA</option>
+            <option value="chicago">Chicago</option><option value="vancouver">Vancouver</option><option value="harvard">Harvard</option>
+          </select>
         </div>
-        <pre class="bib-output-pre" id="bibOutputVerified"></pre>
-        <div class="output-actions">
-          <button class="btn btn-ghost" id="copyVerifiedBtn">Copy Verified</button>
-          <button class="btn btn-ghost" id="downloadVerifiedBtn">Download Verified .bib</button>
+        <div class="opt">
+          <label for="strictness">Matching strictness</label>
+          <select id="strictness" class="format-select">
+            <option value="lenient">Lenient — accept looser matches</option>
+            <option value="normal" selected>Normal</option>
+            <option value="strict">Strict — only near-exact matches</option>
+          </select>
         </div>
+        <div class="opt">
+          <label for="keyStyle">Citation keys</label>
+          <select id="keyStyle" class="format-select">
+            <option value="authoryeartitle">smith2020deep</option>
+            <option value="authoryear">smith2020</option>
+          </select>
+        </div>
+        <div class="opt">
+          <label for="concurrency">Parallel lookups: <output id="concurrencyOut">3</output></label>
+          <input type="range" id="concurrency" min="1" max="6" value="3">
+        </div>
+        <fieldset class="opt">
+          <legend>Databases</legend>
+          <label class="chk"><input type="checkbox" id="pCrossref" checked> Crossref</label>
+          <label class="chk"><input type="checkbox" id="pOpenalex" checked> OpenAlex</label>
+          <label class="chk"><input type="checkbox" id="pSemantic" checked> Semantic Scholar</label>
+        </fieldset>
+        <div class="opt">
+          <label for="mailto">Your email (optional)</label>
+          <input type="email" id="mailto" placeholder="you@university.edu" autocomplete="email">
+          <small>Sent only to Crossref/OpenAlex as a courtesy header for faster, more reliable access. Stored in this browser only.</small>
+        </div>
+        <label class="chk opt"><input type="checkbox" id="protectCaps" checked> Protect acronyms in titles — <code>{UAV}</code></label>
       </div>
-      <!-- Flagged section -->
-      <div class="output-section-block" id="flaggedBlock">
-        <div class="output-section-header">
-          <span class="card-label" style="margin:0">Flagged References</span>
-          <span class="output-section-badge badge-flagged">⚠ Flagged</span>
-          <span class="output-section-count" id="flaggedCount"></span>
-        </div>
-        <pre class="bib-output-pre" id="bibOutputFlagged"></pre>
-        <div class="output-actions">
-          <button class="btn btn-ghost" id="copyFlaggedBtn">Copy Flagged</button>
-          <button class="btn btn-ghost" id="downloadFlaggedBtn">Download Flagged .bib</button>
-        </div>
+    </details>
+  </section>
+
+  <div class="card hidden" id="errorSection" role="alert">
+    <div class="error-card"><span aria-hidden="true">⚠</span><span id="errorMsg"></span></div>
+  </div>
+
+  <section class="card hidden" id="resultsSection" aria-labelledby="resLabel">
+    <div class="results-head">
+      <div class="card-label" id="resLabel" style="margin:0">2 · Check each pair</div>
+      <div class="legend" aria-label="Legend">
+        <span><mark class="hit">green</mark> in both</span>
+        <span><mark class="miss">amber</mark> in BibTeX, not in your text</span>
       </div>
     </div>
-  </div>
 
-  <!-- Unresolved detail -->
-  <div class="card hidden" id="unresolvedSection">
-    <div class="unresolved-header-row">
-      <div class="card-label" style="margin:0">Flagged reference details</div>
-      <span class="unresolved-count-badge" id="unresolvedCount"></span>
+    <div class="runbar" id="runbar" hidden>
+      <div class="progress-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" id="progressBar"><div class="progress-bar-fill" id="progressBarFill"></div></div>
+      <div class="runbar-row"><span id="progressLabel" aria-live="polite"></span><button class="btn btn-ghost btn-sm" id="cancelBtn" type="button">Cancel</button></div>
     </div>
-    <div id="unresolvedList"></div>
-  </div>
 
-</div>
+    <div class="summary" id="summary" role="group" aria-label="Filter results"></div>
+
+    <div class="export-bar">
+      <div class="opt-inline">
+        <label for="scope">Export</label>
+        <select id="scope" class="format-select">
+          <option value="all">Everything except rejected</option>
+          <option value="verified">Verified + accepted only</option>
+          <option value="accepted">Accepted only</option>
+        </select>
+      </div>
+      <button class="btn btn-ghost btn-sm" id="acceptVerifiedBtn" type="button">✓ Accept all verified</button>
+      <span class="spacer"></span>
+      <button class="btn btn-ghost" id="copyBtn" type="button">Copy .bib</button>
+      <button class="btn btn-primary" id="downloadBtn" type="button">Download .bib</button>
+    </div>
+
+    <div class="rows" id="rows"></div>
+  </section>
+</main>
 
 <footer class="site-footer">
   <div class="footer-brand"><strong>AuthentiCite</strong> — Verify, Authenticate, Convert</div>
@@ -129,937 +148,12 @@
   </div>
 </footer>
 
-<div class="toast" id="toast"></div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
 
-<script>
-// ══════════════════════════════════════════════════════════════════════════════
-// SECTION 1: PREPROCESSING
-// ══════════════════════════════════════════════════════════════════════════════
-const ABBREV_MAP = {
-  'uav':'unmanned aerial vehicle','uavs':'unmanned aerial vehicles','iot':'internet of things',
-  'ml':'machine learning','dl':'deep learning','nlp':'natural language processing',
-  'ai':'artificial intelligence','cv':'computer vision','nn':'neural network',
-  'cnn':'convolutional neural network','rnn':'recurrent neural network',
-  'lstm':'long short-term memory','gan':'generative adversarial network',
-  'gpt':'generative pretrained transformer','llm':'large language model',
-  'ids':'intrusion detection system','ips':'intrusion prevention system',
-  'ddos':'distributed denial of service','dos':'denial of service',
-  'vpn':'virtual private network','api':'application programming interface',
-  'gui':'graphical user interface','cpu':'central processing unit','gpu':'graphics processing unit',
-  'fpga':'field programmable gate array','5g':'fifth generation','v2x':'vehicle to everything',
-  'mimo':'multiple input multiple output','ofdm':'orthogonal frequency division multiplexing',
-  'rssi':'received signal strength indicator','manet':'mobile ad hoc network',
-  'vanet':'vehicular ad hoc network','fanet':'flying ad hoc network','rf':'radio frequency',
-  'rl':'reinforcement learning','fl':'federated learning','dnn':'deep neural network',
-  'svm':'support vector machine','knn':'k nearest neighbor','pca':'principal component analysis',
-  'bert':'bidirectional encoder representations from transformers',
-  'iou':'intersection over union','map':'mean average precision',
-  'gps':'global positioning system','slam':'simultaneous localization and mapping',
-  'pid':'proportional integral derivative',
-};
-
-function sanitizeRawInput(raw) {
-  return raw.replace(/[\u2018\u2019]/g,"'").replace(/[\u201C\u201D]/g,'"')
-    .replace(/\u2013|\u2014/g,'-').replace(/[\u200B-\u200D\uFEFF]/g,'')
-    .replace(/[ \t]+/g,' ').replace(/ +\n/g,'\n').trim();
-}
-function extractDOI(str) {
-  const patterns=[/https?:\/\/doi\.org\/(10\.\d{4,9}\/[^\s\)\\"]+)/i,/\bdoi:\s*(10\.\d{4,9}\/[^\s\)\\"]+)/i,/\b(10\.\d{4,9}\/[^\s\)\\"]{4,})/];
-  for(const p of patterns){const m=str.match(p);if(m)return m[1].replace(/[.,;\)\]>]+$/,'');}
-  return null;
-}
-function extractArXiv(str) {
-  const m=str.match(/arxiv[:\s\/]+(\d{4}\.\d{4,5}(?:v\d+)?)/i)||str.match(/https?:\/\/arxiv\.org\/abs\/(\d{4}\.\d{4,5}(?:v\d+)?)/i);
-  return m?m[1]:null;
-}
-
-// ══════════════════════════════════════════════════════════════════════════════
-// SECTION 2: FORMAT DETECTION & PARSING
-// ══════════════════════════════════════════════════════════════════════════════
-function detectFormat(ref) {
-  const s=ref.trim();
-  if(/^\[\d+\]/.test(s))return'ieee';
-  if(/^\d+[\. )]\s+[A-Z]/.test(s))return'vancouver';
-  if(/[A-Z][^.]{2,}\.\s*\(\d{4}[a-z]?\)/.test(s))return'apa';
-  if(/[A-Z][^.]+\.\s*[""\u201C\u201D]/.test(s)&&!/\(\d{4}\)/.test(s.slice(0,80)))return'mla';
-  if(/[A-Z][^.]+\.\s+(?:19|20)\d{2}\.\s/.test(s))return'chicago';
-  if(/[A-Z][^(]+\s\((?:19|20)\d{2}\)\s/.test(s))return'harvard';
-  // Abbreviated/Vancouver style without leading number:
-  // "S. Akhtar and P. Scarf. Forecasting test cricket..." or "Akhtar, S. and Scarf, P. Forecasting..."
-  if(/^[A-Z][A-Za-z'\-]{0,25}[,.]\s+[A-Z]/.test(s)&&/,\s*\d{4}[.\s]/.test(s))return'ieee';
-  return'unknown';
-}
-function splitReferences(raw) {
-  // ════════════════════════════════════════════════════════════════════════
-  // PASS 0 — unicode / whitespace normalisation
-  // ════════════════════════════════════════════════════════════════════════
-  raw = raw
-    .replace(/[\u2018\u2019]/g, "'").replace(/[\u201C\u201D]/g, '"')
-    .replace(/\u2013|\u2014/g, '-').replace(/[\u200B-\u200D\uFEFF]/g, '')
-    .replace(/\t/g, ' ').replace(/[ ]+/g, ' ').replace(/ +\n/g, '\n');
-
-  const rawLines = raw.split('\n');
-
-  // ════════════════════════════════════════════════════════════════════════
-  // PASS 1 — detect dominant marker style, then JOIN soft-wrapped lines
-  //
-  // The key insight: a soft-wrapped continuation line
-  //   • does NOT start a new reference marker ([N] / N. / N))
-  //   • is NOT a blank line
-  //   • is often short (the wrap point was mid-sentence)
-  //
-  // Strategy: scan forward; if a line looks like a continuation of the
-  // previous one, join it with a single space.  Only start a new "logical
-  // line" at a genuine reference boundary marker or a blank line.
-  // ════════════════════════════════════════════════════════════════════════
-
-  // Detect dominant style from the first substantive line
-  const firstNonBlank = rawLines.find(l => l.trim().length > 3) || '';
-  const hasBracketNumbers  = /^\s*\[\d+\]/.test(firstNonBlank);
-  const hasPlainNumbers    = /^\s*\d+[\. )]\s+\S/.test(firstNonBlank);
-  const hasNumberedMarker  = hasBracketNumbers || hasPlainNumbers;
-
-  // Returns true when this line is the START of a new reference
-  function isRefStart(line) {
-    const t = line.trim();
-    if (!t) return false;
-    if (/^\[\d+\]/.test(t))            return true;  // [1], [23]
-    if (/^\d{1,3}[\. )]\s+\S/.test(t)) return true;  // 1. / 1) / 1 
-    if (/^https?:\/\/doi\.org\//.test(t) || /^10\.\d{4,9}\//.test(t)) return true;
-    // For un-numbered styles (APA/MLA/Chicago/Harvard) a line that opens
-    // with "Lastname, Firstname" followed by a year-in-parens on the SAME
-    // logical line is a new ref — but we only trust this when there are NO
-    // numbered markers in the block (to avoid false-positives inside
-    // soft-wrapped IEEE refs where a continuation can start with a name).
-    if (!hasNumberedMarker) {
-      // Full APA/Harvard: "Lastname, F. (2020)." on same line
-      if (/^[A-Z][A-Za-z'\-]{1,25},\s+[A-Z]/.test(t) && /\(\d{4}[a-z]?\)/.test(t)) return true;
-      // Soft-wrapped "Lastname, Initials." style (APA/Chicago)
-      if (/^[A-Z][A-Za-z'\-]{1,25},\s+[A-Z][A-Za-z]*\./.test(t) && !/\(\d{4}\)/.test(t) && !/\b(vol|pp\.|no\.|pages?|journal|in\s)/i.test(t.slice(0,60))) return true;
-      // Abbreviated initials-first style: "S. Akhtar and P. Scarf." or "P. E. Allsopp and S. R. Clarke."
-      // Pattern: starts with single uppercase letter + period + space + optional more initials + capitalized lastname
-      if (/^[A-Z]\.\s+(?:[A-Z]\.\s+)*[A-Z][a-z]/.test(t) && !/^\d/.test(t)) return true;
-    }
-    return false;
-  }
-
-  // Join soft-wrapped lines into logical lines
-  const logicalLines = [];
-  let buf = '';
-  for (const line of rawLines) {
-    const trimmed = line.trim();
-
-    if (trimmed === '') {
-      // Blank line — flush the buffer then emit the blank
-      if (buf) { logicalLines.push(buf); buf = ''; }
-      logicalLines.push('');
-      continue;
-    }
-
-    if (isRefStart(line)) {
-      // Definitive new-ref marker — flush, start fresh
-      if (buf) logicalLines.push(buf);
-      buf = trimmed;
-    } else if (buf === '') {
-      // Nothing accumulated yet — start accumulating
-      buf = trimmed;
-    } else {
-      // Continuation: join onto current buffer
-      // Use a space (not newline) so downstream parsers see one long string
-      buf += ' ' + trimmed;
-    }
-  }
-  if (buf) logicalLines.push(buf);
-
-  // ════════════════════════════════════════════════════════════════════════
-  // PASS 2 — split logical lines into individual reference strings
-  //
-  // Now every logical line is either:
-  //   (a) a complete reference (possibly very long), or
-  //   (b) a blank line separating references (in un-numbered styles)
-  // ════════════════════════════════════════════════════════════════════════
-  const refs = [];
-  let current = '';
-
-  for (const lline of logicalLines) {
-    if (lline === '') {
-      // Blank separator — flush if we have enough content
-      if (current.trim()) {
-        refs.push(current.trim());
-        current = '';
-      }
-      continue;
-    }
-
-    if (isRefStart(lline)) {
-      if (current.trim()) refs.push(current.trim());
-      current = lline;
-    } else {
-      // Continuation of the current ref (shouldn't happen often after pass 1,
-      // but handles edge cases like consecutive non-marker lines)
-      current += current ? ' ' + lline : lline;
-    }
-  }
-  if (current.trim()) refs.push(current.trim());
-
-  // ════════════════════════════════════════════════════════════════════════
-  // PASS 3 — clean up each ref string
-  // ════════════════════════════════════════════════════════════════════════
-  return refs
-    .map(r => r.replace(/\s+/g, ' ').trim())
-    .filter(r => r.length > 10);
-}
-function makeEmptyEntry(raw){return{type:'misc',authors:[],title:'',journal:'',booktitle:'',publisher:'',year:'',volume:'',number:'',pages:'',address:'',editor:'',note:'',doi:'',arxiv:'',raw:raw.trim(),format:'unknown'};}
-function parseAuthorsGeneric(block){
-  if(!block)return[];
-  block=block.replace(/\.\s*$/,'').trim();
-  const raw=block.split(/;\s*|\s+and\s+|\s+&\s+|,\s+(?=(?:[A-Z][a-z]+|[A-Z]\.))/i).filter(Boolean);
-  const authors=[];
-  for(let a of raw){
-    a=a.trim().replace(/\.$/,'');
-    if(!a||a.length<2)continue;
-    if(/et al/i.test(a)){authors.push('others');continue;}
-    if(/,/.test(a)){authors.push(a);continue;}
-    const parts=a.trim().split(/\s+/);
-    if(parts.length>=2)authors.push(`${parts[parts.length-1]}, ${parts.slice(0,-1).join(' ')}`);
-    else authors.push(a);
-  }
-  return authors;
-}
-function parseIEEE(ref){
-  const result=makeEmptyEntry(ref);
-  const withoutNum=ref.replace(/^\s*\[\d+\]\s*/,'').trim();
-  const doiMatch=withoutNum.match(/(?:doi:|https?:\/\/doi\.org\/)(10\.[^\s,]+)/i);
-  if(doiMatch)result.doi=doiMatch[1].replace(/\.$/,'');
-  const arxivMatch=extractArXiv(withoutNum);if(arxivMatch)result.arxiv=arxivMatch;
-  const yearRaw=withoutNum.match(/(?:(?:1st|2nd|3rd|4th)\s+Quart\.?,?\s*|(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\.?\s*)?((?:19|20)\d{2})\b/i);
-  if(yearRaw)result.year=yearRaw[1];
-
-  // ── Volume / number / pages (work on raw string regardless of title style) ──
-  const volM=withoutNum.match(/\bvol\.?\s*(\w+)/i);if(volM)result.volume=volM[1];
-  const noM=withoutNum.match(/\bno\.?\s*(\d+)/i);if(noM)result.number=noM[1];
-  // Pages: "7:48572–48634"  OR  "pp. 128–140"  OR  "128–140"
-  const colonPages=withoutNum.match(/\b\d+:([\d]+[–\-][\d]+)\b/);
-  const ppPages=withoutNum.match(/pp\.?\s*([\d]+[–\-][\d]+)/i);
-  const plainPages=withoutNum.match(/,\s*([\d]{1,6}[–\-][\d]{1,6})\s*(?:,|\.|$)/);
-  const rawPages=(colonPages?.[1]||ppPages?.[1]||plainPages?.[1]||'').replace(/–/g,'-');
-  if(rawPages)result.pages=rawPages;
-
-  const quotedTitle=withoutNum.match(/[""\u201C\u201D\u0022]([^""\u201C\u201D\u0022]+)[""\u201C\u201D\u0022]/);
-
-  if(quotedTitle){
-    // ── Quoted-title IEEE style: Authors, "Title," Journal, vol, no, pp, year ──
-    result.title=quotedTitle[1].trim();
-    const openQuoteIdx=withoutNum.indexOf(quotedTitle[0]);
-    const authBlock=withoutNum.slice(0,openQuoteIdx);
-    result.authors=parseAuthorsGeneric(authBlock.replace(/,\s*$/,''));
-    const closeQuoteIdx=openQuoteIdx+quotedTitle[0].length;
-    const afterTitle=withoutNum.slice(closeQuoteIdx).replace(/^[,\s"]+/,'').trim();
-    const jMatch=afterTitle.match(/^([^,]+?)(?:,\s*(?:vol\.|pp\.|no\.|in\s)|\s+vol\b|\s+no\b|\s+pp\b|,\s*\d{4}|\s+(?:19|20)\d{2})/i);
-    if(jMatch){
-      const jCandidate=jMatch[1].trim().replace(/\.$/,'');
-      if(jCandidate.length>1&&!/^\d/.test(jCandidate)){
-        if(/conference|proceedings|workshop|symposium/i.test(jCandidate)){result.booktitle=jCandidate;result.type='inproceedings';}
-        else{result.journal=jCandidate;result.type='article';}
-      }
-    }else{
-      const jFallback=afterTitle.split(/,/)[0].trim().replace(/\.$/,'');
-      if(jFallback.length>2&&!/^\d/.test(jFallback)&&!/^vol/i.test(jFallback)){result.journal=jFallback;result.type='article';}
-    }
-  } else {
-    // ── Unquoted style (IEEE, Vancouver, etc.):
-    //    "Authors. Title. Venue, vol(no):pages, year."
-    //
-    // The fundamental challenge: author blocks and titles are both free text
-    // separated by ". " — we can't use character length alone.
-    //
-    // Reliable signals that a segment is an AUTHOR block (not a title):
-    //   A) Every comma-separated token looks like a person name:
-    //      starts with uppercase, no lowercase connector words
-    //      (a, an, the, of, on, for, in, by, with, using, via, and…)
-    //      and no digits except single initials.
-    //   B) The segment contains " and " joining the last author.
-    //   C) No colon (titles often have "Subtitle: detail").
-    //
-    // Reliable signals that a segment is a TITLE (not authors):
-    //   A) Contains a colon (common in titles, rare in author blocks).
-    //   B) Contains lowercase function words (a, an, the, of, on, for…).
-    //   C) Doesn't look like a name list.
-    //
-    // Strategy: split on ". " — for each segment from the front, decide if
-    // it's author-like. Stop as soon as a segment is title-like.
-
-    function looksLikeNameList(seg) {
-      // Reject immediately if it contains typical title signals
-      if (/:\s*[A-Za-z]/.test(seg)) return false; // has colon → title
-      // Reject if it has typical venue/journal keywords
-      if (/\b(journal|transactions|access|conference|proceedings|computing|letters|review|systems|science|engineering|technology|arxiv|preprint)\b/i.test(seg)) return false;
-      // Reject if it has a year
-      if (/\b(19|20)\d{2}\b/.test(seg)) return false;
-
-      // Split on ", " and " and " to get individual tokens
-      const tokens = seg.split(/,\s+(?:and\s+)?|\s+and\s+/i).map(t => t.trim()).filter(Boolean);
-      if (tokens.length === 0) return false;
-
-      // Every token must look like a person name:
-      //   - starts with uppercase
-      //   - contains no lowercase connector words as standalone tokens
-      //   - has no digits (except single-letter initials like "H")
-      const connectors = new Set(['a','an','the','of','on','for','in','by','with','using','via','based','through','towards','toward']);
-      let nameCount = 0;
-      for (const tok of tokens) {
-        if (!tok) continue;
-        const words = tok.split(/\s+/);
-        // A name token: first word capitalised, no connector words, no digits beyond initials
-        const firstWordCap = /^[A-Z]/.test(words[0]);
-        const hasConnector = words.some(w => connectors.has(w.toLowerCase()) && w.length > 1);
-        const hasDigits = /\d{2,}/.test(tok); // 2+ consecutive digits = not a name
-        if (firstWordCap && !hasConnector && !hasDigits) nameCount++;
-      }
-      // Must have at least one name-like token, and >80% of tokens must be name-like
-      return nameCount > 0 && nameCount / tokens.length >= 0.8;
-    }
-
-    const segments = withoutNum.split(/\.\s+/);
-    if (segments.length >= 2) {
-      let authorEnd = 0;
-      for (let i = 0; i < segments.length - 1; i++) {
-        if (looksLikeNameList(segments[i])) authorEnd = i + 1;
-        else break;
-      }
-
-      const authorRaw = segments.slice(0, authorEnd).join('. ');
-      result.authors = parseAuthorsIEEEUnquoted(authorRaw);
-
-      if (authorEnd < segments.length) {
-        result.title = segments[authorEnd].trim().replace(/\.$/,'');
-      }
-
-      if (authorEnd + 1 < segments.length) {
-        const venueSeg = segments.slice(authorEnd + 1).join('. ').trim();
-        // Match "Journal Name, 16(6):4128-4139" or "Journal Name, vol. 7, pp. 123"
-        const jMatch = venueSeg.match(/^([^,\d][^,]+?)(?:,\s*(?:vol\.?|pp\.?|\d)|\s+\d+\s*[:(])/i);
-        if (jMatch) {
-          const jCandidate = jMatch[1].trim().replace(/\.$/,'');
-          if (jCandidate.length > 2 && !/^\d/.test(jCandidate)) {
-            if (/conference|proceedings|workshop|symposium/i.test(jCandidate)) { result.booktitle=jCandidate; result.type='inproceedings'; }
-            else { result.journal=jCandidate; result.type='article'; }
-          }
-        } else {
-          const jFallback = venueSeg.split(',')[0].trim().replace(/\.$/,'');
-          if (jFallback.length > 2 && !/^\d/.test(jFallback) && !/^(19|20)\d{2}$/.test(jFallback)) {
-            if (/conference|proceedings|workshop|symposium/i.test(jFallback)) { result.booktitle=jFallback; result.type='inproceedings'; }
-            else { result.journal=jFallback; result.type='article'; }
-          }
-        }
-      }
-    }
-  }
-
-  if(!result.type||result.type==='misc')result.type=result.journal?'article':result.booktitle?'inproceedings':'misc';
-  return result;
-}
-
-// Parse authors from unquoted IEEE style where they may be comma-and-space separated
-// e.g. "Hazim Shakhatreh, Ahmad H Sawalmeh, Ala Al-Fuqaha, ... and Mohsen Guizani"
-function parseAuthorsIEEEUnquoted(block){
-  if(!block)return[];
-  block=block.trim().replace(/\.\s*$/,'');
-  // Split on ", and " or " and " boundaries, then on commas between full names
-  // Full-name detection: a token that starts with uppercase and has ≥2 chars
-  const tokens=block.split(/,\s+(?:and\s+)?|(?<!\b[A-Z])\s+and\s+/i).map(t=>t.trim()).filter(Boolean);
-  const authors=[];
-  for(let t of tokens){
-    t=t.replace(/\.$/,'').trim();
-    if(!t||t.length<2)continue;
-    if(/et al/i.test(t)){authors.push('others');continue;}
-    const parts=t.split(/\s+/);
-    if(parts.length>=2){
-      const last=parts[parts.length-1];
-      const first=parts.slice(0,-1).join(' ');
-      authors.push(`${last}, ${first}`);
-    } else {
-      authors.push(t);
-    }
-  }
-  return authors;
-}
-function parseAPA(ref){
-  const result=makeEmptyEntry(ref);
-  const doiMatch=ref.match(/https?:\/\/doi\.org\/(10\.[^\s\)]+)|doi:\s*(10\.[^\s\)]+)/i);
-  if(doiMatch)result.doi=(doiMatch[1]||doiMatch[2]).replace(/[.,)]+$/,'');
-  const arxivMatch=extractArXiv(ref);if(arxivMatch)result.arxiv=arxivMatch;
-  const yearMatch=ref.match(/\((\d{4}[a-z]?)\)/);
-  if(yearMatch)result.year=yearMatch[1].replace(/[a-z]$/,'');
-  if(yearMatch)result.authors=parseAuthorsGeneric(ref.slice(0,ref.indexOf(yearMatch[0])));
-  const afterYear=yearMatch?ref.slice(ref.indexOf(yearMatch[0])+yearMatch[0].length).replace(/^\.\s*/,''):'';
-  const segments=afterYear.split(/\.\s+/);
-  if(segments.length>=1)result.title=segments[0].replace(/\.$/,'').trim();
-  if(segments.length>=2){
-    const jPart=segments[1];
-    const jMatch=jPart.match(/^(.+?),\s*(\d+)(?:\((\d+)\))?,?\s*([\d\s–\-]+)?/);
-    if(jMatch){result.journal=jMatch[1].trim();result.volume=jMatch[2];result.number=jMatch[3]||'';result.pages=(jMatch[4]||'').trim().replace(/–/g,'-');result.type='article';}
-    else{const pubMatch=jPart.match(/^([A-Z].+?)\./);if(pubMatch){result.publisher=pubMatch[1].trim();result.type='book';}}
-  }
-  if(!result.type||result.type==='misc')result.type=result.journal?'article':result.publisher?'book':'misc';
-  return result;
-}
-function parseGenericFallback(ref){
-  const result=makeEmptyEntry(ref);
-  const doiMatch=extractDOI(ref);if(doiMatch)result.doi=doiMatch;
-  const arxivMatch=extractArXiv(ref);if(arxivMatch)result.arxiv=arxivMatch;
-  const yearMatch=ref.match(/\b((?:19|20)\d{2})\b/);if(yearMatch)result.year=yearMatch[1];
-  const quotedTitle=ref.match(/[""\u201C\u201D]([^""\u201C\u201D]{10,})[""]/);
-  if(quotedTitle)result.title=quotedTitle[1].trim();
-  const withoutNum=ref.replace(/^\s*\[\d+\]\s*/,'').replace(/^\s*\d+[\. )]\s*/,'').trim();
-  const firstDot=withoutNum.indexOf('. ');
-  if(firstDot>0&&firstDot<100)result.authors=parseAuthorsGeneric(withoutNum.slice(0,firstDot));
-  return result;
-}
-function parseReference(refStr,overrideFormat){
-  const doi=extractDOI(refStr);const arxiv=extractArXiv(refStr);
-  const fmt=overrideFormat&&overrideFormat!=='auto'?overrideFormat:detectFormat(refStr);
-  let result;
-  if(fmt==='ieee')result=parseIEEE(refStr);
-  else if(fmt==='apa')result=parseAPA(refStr);
-  else result=parseGenericFallback(refStr);
-  result.format=fmt;
-  if(!result.doi&&doi)result.doi=doi;
-  if(!result.arxiv&&arxiv)result.arxiv=arxiv;
-  if(!result.year){const y=refStr.match(/\b((?:19|20)\d{2})\b/);if(y)result.year=y[1];}
-  return result;
-}
-
-// ══════════════════════════════════════════════════════════════════════════════
-// SECTION 3: SIMILARITY
-// ══════════════════════════════════════════════════════════════════════════════
-const STOP_WORDS=new Set(['the','a','an','of','in','on','for','and','to','with','from','is','are','via','its','new','using','toward','towards','how','between','does','their','this','that','these','those','into','by','at','as','be','been','was','were']);
-function normalizeForMatch(s){
-  if(!s)return[];
-  const lower=s.toLowerCase().replace(/[^a-z0-9\s]/g,'').replace(/\s+/g,' ').trim();
-  const words=lower.split(' ').filter(w=>w.length>0);
-  const expanded=[];
-  for(const w of words){if(ABBREV_MAP[w]){expanded.push(w);ABBREV_MAP[w].split(' ').forEach(ew=>expanded.push(ew));}else{expanded.push(w);}}
-  return expanded.filter(w=>w.length>1&&!STOP_WORDS.has(w));
-}
-function titleSimilarity(a,b){
-  if(!a||!b)return 0;
-  const wordsA=normalizeForMatch(a),wordsB=normalizeForMatch(b);
-  if(wordsA.length===0||wordsB.length===0)return 0;
-  const setA=new Set(wordsA),setB=new Set(wordsB);
-  const intersection=[...setA].filter(w=>setB.has(w)).length;
-  const union=new Set([...setA,...setB]).size;
-  return union===0?0:intersection/union;
-}
-function isLikelyAbbreviated(title){if(!title)return false;const words=title.toLowerCase().split(/\s+/);return words.some(w=>ABBREV_MAP[w]||(w.length<=5&&/^[a-z]+$/.test(w)));}
-function getMatchThreshold(parsedTitle){if(isLikelyAbbreviated(parsedTitle))return 0.45;if(parsedTitle&&parsedTitle.split(/\s+/).length<=5)return 0.50;return 0.62;}
-
-// ══════════════════════════════════════════════════════════════════════════════
-// SECTION 4: QUERY STRATEGIES
-// ══════════════════════════════════════════════════════════════════════════════
-function buildQueryStrategies(parsed){
-  const strategies=[];const raw=parsed.raw||'';
-
-  if(parsed.doi)strategies.push({type:'doi',value:parsed.doi});
-  if(parsed.arxiv)strategies.push({type:'arxiv',value:parsed.arxiv});
-
-  // Primary: parsed title + first author — most precise
-  if(parsed.title&&parsed.title.length>10){
-    const firstAuthorLast=(parsed.authors[0]||'').split(',')[0].trim()||(parsed.authors[0]||'').split(/\s+/).pop()||'';
-    strategies.push({type:'title+author',value:parsed.title,author:firstAuthorLast,year:parsed.year});
-    strategies.push({type:'title-only',value:parsed.title});
-  }
-
-  // Raw-string fallback: send the clean raw text (minus reference number)
-  // This works even when local parsing fails badly — the APIs are good at fuzzy matching
-  const cleanRaw=raw.replace(/^\s*\[\d+\]\s*/,'').replace(/^\s*\d+[\. )]\s*/,'').replace(/\s+/g,' ').trim();
-  if(cleanRaw.length>20)strategies.push({type:'raw',value:cleanRaw.slice(0,300)});
-
-  // Try to extract a title directly from the raw string using structural heuristics,
-  // independent of the local parser — catches cases where parseIEEE mis-assigns the title.
-  // In unquoted IEEE style: segments split by ". " where seg[0]=authors, seg[1]=title.
-  // We re-derive it here so even if parseIEEE got it wrong, we still try a good query.
-  if(!parsed.title||parsed.title.length<10){
-    const rawNoNum=cleanRaw;
-    const segs=rawNoNum.split(/\.\s+/);
-    // The title is usually the FIRST segment that contains lowercase connector words
-    // or a colon — i.e. looks like a sentence, not a name list
-    const connectors=/\b(a|an|the|of|on|for|in|by|with|using|via|and|based|through)\b/i;
-    for(let i=1;i<segs.length;i++){
-      const s=segs[i].trim();
-      if(s.length>15&&(connectors.test(s)||/:\s*[A-Za-z]/.test(s))&&!/\b(19|20)\d{2}\b/.test(s)&&!/^\d/.test(s)){
-        strategies.push({type:'raw-title',value:s});
-        break;
-      }
-    }
-    // For Harvard/un-numbered style the title follows the year in parens.
-    // E.g.: "Akhtar, S. and Scarf, P. (2012). Forecasting test cricket…"
-    const afterYearMatch=rawNoNum.match(/(\(\d{4}[a-z]?\)\s*[.,]?\s+)([A-Z][^.]{15,})/);
-    if(afterYearMatch){
-      const candidate=afterYearMatch[2].trim().replace(/\.$/, '');
-      if(!strategies.some(s=>s.value===candidate))
-        strategies.push({type:'raw-title',value:candidate.slice(0,200)});
-    }
-  }
-
-  if(parsed.authors.length>0&&parsed.year){
-    const lastName=(parsed.authors[0]||'').split(',')[0].trim();
-    if(lastName.length>2)strategies.push({type:'author+year',value:`${lastName} ${parsed.year}`});
-  }
-
-  return strategies;
-}
-
-// ══════════════════════════════════════════════════════════════════════════════
-// SECTION 5: API CLIENTS
-// ══════════════════════════════════════════════════════════════════════════════
-const MAILTO='hassanahmed1166@gmail.com';
-async function fetchJSON(url,timeout=9000){try{const res=await fetch(url,{signal:AbortSignal.timeout(timeout)});if(!res.ok)return null;return await res.json();}catch{return null;}}
-
-function crossrefItemToBibtex(item){
-  const TYPE_MAP={'journal-article':'article','book':'book','book-chapter':'incollection','proceedings-article':'inproceedings','conference-paper':'inproceedings','monograph':'book','edited-book':'book','report':'techreport','dissertation':'phdthesis'};
-  let type=TYPE_MAP[item.type]||null;
-  // If API type is unrecognised, infer from available fields rather than blindly using 'misc'
-  if(!type){
-    const containerTitle=item['container-title']?.[0]||'';
-    const hasEvent=!!(item?.event?.name);
-    if(item.volume||item.issue||(containerTitle&&!/conference|proceedings|workshop|symposium/i.test(containerTitle)))type='article';
-    else if(hasEvent||/conference|proceedings|workshop|symposium/i.test(containerTitle))type='inproceedings';
-    else if(item.publisher&&!item.volume)type='book';
-    else type='misc';
-  }
-  const authors=(item.author||[]).map(a=>{const g=a.given||'',f=a.family||'';return f?`${f}, ${g}`:g;});
-  const year=item.published?.['date-parts']?.[0]?.[0]?.toString()||item['published-print']?.['date-parts']?.[0]?.[0]?.toString()||item['published-online']?.['date-parts']?.[0]?.[0]?.toString()||'';
-  const containerTitle=item['container-title']?.[0]||'';
-  const journal=type==='article'?containerTitle:'';
-  const booktitle=(type==='inproceedings'||type==='incollection')?(containerTitle||item?.event?.name||''):'';
-  return{type,authors,title:item.title?.[0]||'',doi:item.DOI||'',journal,booktitle,publisher:item.publisher||'',year,volume:item.volume||'',number:item.issue||'',pages:(item.page||'').replace('--','-'),editor:(item.editor||[]).map(e=>`${e.family||''}, ${e.given||''}`).join(' and '),address:'',note:'',organization:''};
-}
-async function crossrefByDOI(doi){const data=await fetchJSON(`https://api.crossref.org/works/${encodeURIComponent(doi)}?mailto=${MAILTO}`);if(!data?.message)return null;return{bibtex:crossrefItemToBibtex(data.message),apiTitle:data.message.title?.[0]||''};}
-async function crossrefByQuery(query,parsedTitle,isRawStrategy=false){const url=`https://api.crossref.org/works?query.bibliographic=${encodeURIComponent(query)}&rows=5&select=DOI,title,author,published,container-title,volume,issue,page,publisher,type,editor,event,ISBN,ISSN&mailto=${MAILTO}`;const data=await fetchJSON(url);const items=data?.message?.items;if(!items?.length)return null;const threshold=isRawStrategy?0.38:getMatchThreshold(parsedTitle);const matchTarget=isRawStrategy?query:parsedTitle||query;const best=items.map(item=>({item,sim:titleSimilarity(matchTarget,item.title?.[0]||'')})).sort((a,b)=>b.sim-a.sim)[0];if(best.sim<threshold)return null;return{bibtex:crossrefItemToBibtex(best.item),apiTitle:best.item.title?.[0]||'',similarity:best.sim};}
-
-function semanticPaperToBibtex(paper){
-  const authors=(paper.authors||[]).map(a=>{const parts=(a.name||'').trim().split(/\s+/);if(parts.length<2)return a.name||'';return`${parts[parts.length-1]}, ${parts.slice(0,-1).join(' ')}`;});
-  const types=paper.publicationTypes||[];let type='misc';
-  if(types.includes('JournalArticle'))type='article';
-  else if(types.includes('Conference')||types.includes('ConferencePaper'))type='inproceedings';
-  else if(types.includes('Book'))type='book';
-  else if(types.includes('BookSection'))type='incollection';
-  // Field-evidence fallback — don't stay 'misc' if we have enough signal
-  else if(paper.journal?.name)type='article';
-  else if(paper.venue&&/conference|proceedings|workshop|symposium/i.test(paper.venue))type='inproceedings';
-  else if(paper.venue)type='article'; // venue present but not conference-sounding → treat as journal article
-  return{type,authors,title:paper.title||'',journal:type==='article'?(paper.journal?.name||paper.venue||''):'',booktitle:(type==='inproceedings'||type==='incollection')?(paper.venue||paper.publicationVenue?.name||''):'',publisher:'',year:paper.year?.toString()||'',volume:paper.journal?.volume||'',number:'',pages:paper.journal?.pages||'',editor:'',doi:paper.externalIds?.DOI||'',address:'',note:'',organization:''};
-}
-async function semanticByDOI(doi){const fields='title,authors,year,venue,journal,externalIds,publicationTypes,publicationVenue';const data=await fetchJSON(`https://api.semanticscholar.org/graph/v1/paper/DOI:${encodeURIComponent(doi)}?fields=${fields}`);if(!data?.paperId)return null;return{bibtex:semanticPaperToBibtex(data),apiTitle:data.title||''};}
-async function semanticByArXiv(arxivId){const fields='title,authors,year,venue,journal,externalIds,publicationTypes,publicationVenue';const data=await fetchJSON(`https://api.semanticscholar.org/graph/v1/paper/ARXIV:${encodeURIComponent(arxivId)}?fields=${fields}`);if(!data?.paperId)return null;return{bibtex:semanticPaperToBibtex(data),apiTitle:data.title||''};}
-async function semanticByQuery(query,parsedTitle,isRawStrategy=false){const fields='title,authors,year,venue,journal,externalIds,publicationTypes,publicationVenue';const url=`https://api.semanticscholar.org/graph/v1/paper/search?query=${encodeURIComponent(query)}&limit=5&fields=${fields}`;const data=await fetchJSON(url);const papers=data?.data;if(!papers?.length)return null;const threshold=isRawStrategy?0.38:getMatchThreshold(parsedTitle);const matchTarget=isRawStrategy?query:parsedTitle||query;const best=papers.map(p=>({p,sim:titleSimilarity(matchTarget,p.title||'')})).sort((a,b)=>b.sim-a.sim)[0];if(best.sim<threshold)return null;return{bibtex:semanticPaperToBibtex(best.p),apiTitle:best.p.title||'',similarity:best.sim};}
-
-function openAlexWorkToBibtex(work){
-  const authors=(work.authorships||[]).map(a=>{const name=a.author?.display_name||'';const parts=name.trim().split(/\s+/);if(parts.length<2)return name;return`${parts[parts.length-1]}, ${parts.slice(0,-1).join(' ')}`;});
-  const doi=(work.doi||'').replace('https://doi.org/','');const year=work.publication_year?.toString()||'';
-  const OPENALEX_TYPE_MAP={'journal-article':'article','article':'article','book':'book','book-chapter':'incollection','proceedings-article':'inproceedings','conference-paper':'inproceedings','monograph':'book','edited-book':'book','report':'techreport','dissertation':'phdthesis','preprint':'misc'};
-  let type=OPENALEX_TYPE_MAP[work.type]||null;
-  // Field-evidence fallback — infer from what we actually have
-  if(!type){
-    const sourceName=work.primary_location?.source?.display_name||'';
-    if(work.biblio?.volume||(/journal/i.test(work.primary_location?.source?.type||'')))type='article';
-    else if(/conference|proceedings|workshop|symposium/i.test(sourceName))type='inproceedings';
-    else if(sourceName)type='article';
-    else type='misc';
-  }
-  const source=work.primary_location?.source;
-  return{type,authors,title:work.title||work.display_name||'',journal:type==='article'?(source?.display_name||''):'',booktitle:(type==='inproceedings'||type==='incollection')?(source?.display_name||''):'',publisher:source?.host_organization_name||'',year,volume:work.biblio?.volume||'',number:work.biblio?.issue||'',pages:[work.biblio?.first_page,work.biblio?.last_page].filter(Boolean).join('-'),editor:'',doi,address:'',note:'',organization:''};
-}
-async function openAlexByDOI(doi){const data=await fetchJSON(`https://api.openalex.org/works/https://doi.org/${encodeURIComponent(doi)}?mailto=${MAILTO}`);if(!data?.id)return null;return{bibtex:openAlexWorkToBibtex(data),apiTitle:data.title||''};}
-async function openAlexByQuery(query,year,parsedTitle,isRawStrategy=false){const yearFilter=year&&/^\d{4}$/.test(year)?`&filter=publication_year:${year}`:'';const url=`https://api.openalex.org/works?search=${encodeURIComponent(query)}${yearFilter}&per-page=5&mailto=${MAILTO}`;const data=await fetchJSON(url);const works=data?.results;if(!works?.length)return null;const threshold=isRawStrategy?0.38:getMatchThreshold(parsedTitle);const matchTarget=isRawStrategy?query:parsedTitle||query;const best=works.map(w=>({w,sim:titleSimilarity(matchTarget,w.title||w.display_name||'')})).sort((a,b)=>b.sim-a.sim)[0];if(best.sim<threshold)return null;return{bibtex:openAlexWorkToBibtex(best.w),apiTitle:best.w.title||'',similarity:best.sim};}
-
-// ══════════════════════════════════════════════════════════════════════════════
-// SECTION 6: ORCHESTRATOR
-// ══════════════════════════════════════════════════════════════════════════════
-async function lookupEntry(parsed,onStatus){
-  const strategies=buildQueryStrategies(parsed);const parsedTitle=parsed.title||'';
-  if(parsed.doi){
-    onStatus('fetching','DOI found — querying 3 APIs in parallel…');
-    const[cr,ss,oa]=await Promise.all([crossrefByDOI(parsed.doi),semanticByDOI(parsed.doi),openAlexByDOI(parsed.doi)]);
-    if(cr)return{entry:cr.bibtex,source:'crossref',apiTitle:cr.apiTitle,strategy:'doi'};
-    if(ss)return{entry:ss.bibtex,source:'semantic',apiTitle:ss.apiTitle,strategy:'doi'};
-    if(oa)return{entry:oa.bibtex,source:'openalex',apiTitle:oa.apiTitle,strategy:'doi'};
-    onStatus('fetching','DOI not found — trying title search…');
-  }
-  if(parsed.arxiv){
-    onStatus('fetching','arXiv ID found — looking up preprint…');
-    const ss=await semanticByArXiv(parsed.arxiv);
-    if(ss)return{entry:ss.bibtex,source:'semantic',apiTitle:ss.apiTitle,strategy:'arxiv'};
-  }
-  const titleStrategies=strategies.filter(s=>!['doi','arxiv'].includes(s.type));
-  for(const strat of titleStrategies){
-    const stratLabel={'title+author':'parsed title + author','raw':'raw reference string','title-only':'title only','author+year':'author + year','raw-title':'extracted title'}[strat.type]||strat.type;
-    onStatus('fetching',`Searching by ${stratLabel} across 3 APIs…`);
-    const query=strat.value;
-    // For raw/raw-title strategies the parsedTitle may be garbage (mis-parsed),
-    // so we lower the threshold and let the API result's own title be the match target.
-    const isRawStrategy=strat.type==='raw'||strat.type==='raw-title'||strat.type==='author+year';
-    const titleForMatch=(!isRawStrategy&&parsedTitle)||query;
-    const[cr,ss,oa]=await Promise.all([
-      crossrefByQuery(query,titleForMatch,isRawStrategy),
-      semanticByQuery(query,titleForMatch,isRawStrategy),
-      openAlexByQuery(query,parsed.year,titleForMatch,isRawStrategy)
-    ]);
-    const candidates=[cr&&{...cr,source:'crossref'},ss&&{...ss,source:'semantic'},oa&&{...oa,source:'openalex'}].filter(Boolean).sort((a,b)=>(b.similarity||0)-(a.similarity||0));
-    if(candidates.length>0){const best=candidates[0];return{entry:best.bibtex,source:best.source,apiTitle:best.apiTitle,strategy:strat.type,similarity:best.similarity};}
-  }
-  onStatus('fallback','Not found in any API — using local parser…');
-  return{entry:parsed,source:'local',apiTitle:'',strategy:'local'};
-}
-
-async function lookupAllReferences(raw,overrideFormat,onItemUpdate,onProgress){
-  const refStrings=splitReferences(raw).filter(r=>r.trim());
-  if(!refStrings.length)throw new Error('No references detected.\nSupported: APA, MLA, Chicago, IEEE ([1] …), Vancouver (1. …), Harvard, arXiv, DOI.\nTip: each reference should start on a new line.');
-  const parsed=refStrings.map(r=>parseReference(r,overrideFormat));
-  const results=[];
-  for(let i=0;i<parsed.length;i++){
-    onItemUpdate(i,'fetching','Fetching…','',null,'');
-    const{entry,source,apiTitle,strategy,similarity}=await lookupEntry(parsed[i],(state,msg)=>onItemUpdate(i,state,msg,'',null,''));
-    let verifyResult=verifyEntry(entry,source,parsed[i].title||'',apiTitle||entry.title||'');
-    if(source==='local'&&(verifyResult.verdict==='suspect'||verifyResult.verdict==='fake')){
-      onItemUpdate(i,'fetching','Running LLM structural check…','',null,'');
-      try{const llmResult=await llmStructuralCheck(parsed[i].raw||'',entry);
-        if(llmResult?.structurePlausible===true){if(verifyResult.verdict==='fake')verifyResult.verdict='suspect';else if(verifyResult.verdict==='suspect')verifyResult.verdict='warn';verifyResult.flags.push(`LLM structural check: internally consistent (${llmResult.confidence} confidence)`);verifyResult.score=Math.min(verifyResult.score+18,80);}
-        else if(llmResult?.structurePlausible===false){verifyResult.flags.push(`LLM structural check: ${llmResult.reason}`);}
-      }catch(_){}
-    }
-    const strategyLabel={'doi':'via DOI','arxiv':'via arXiv','title+author':'via title+author search','raw':'via raw string search','title-only':'via title search','author+year':'via author+year search','local':'local parser'}[strategy]||'';
-    const state=source==='local'?'fallback':'found';
-    onItemUpdate(i,state,parsed[i].title||parsed[i].raw?.slice(0,60)||`Reference ${i+1}`,source,verifyResult,strategyLabel);
-    results.push({entry,source,original:parsed[i],verify:verifyResult,apiTitle,strategy});
-    onProgress(i+1,parsed.length);
-    if(i<parsed.length-1)await sleep(200);
-  }
-  const bibtexEntries=results.map(r=>entryToBibtex(r.entry));
-  const bibtex=bibtexEntries.join('\n\n');
-  const stats={total:results.length,crossref:results.filter(r=>r.source==='crossref').length,semantic:results.filter(r=>r.source==='semantic').length,openalex:results.filter(r=>r.source==='openalex').length,local:results.filter(r=>r.source==='local').length,ok:results.filter(r=>r.verify?.verdict==='ok').length,warn:results.filter(r=>r.verify?.verdict==='warn').length,suspect:results.filter(r=>r.verify?.verdict==='suspect').length,fake:results.filter(r=>r.verify?.verdict==='fake').length};
-  const unresolved=results.map((r,i)=>({...r,index:i+1})).filter(r=>r.source==='local'||r.verify?.verdict==='fake'||r.verify?.verdict==='suspect');
-  
-  // Split into verified and flagged
-  const verifiedResults=results.filter((r,i)=>r.verify?.verdict==='ok'||r.verify?.verdict==='warn');
-  const flaggedResults=results.filter((r,i)=>r.verify?.verdict==='fake'||r.verify?.verdict==='suspect'||r.source==='local');
-  const verifiedBibtex=verifiedResults.map(r=>entryToBibtex(r.entry)).join('\n\n');
-  const flaggedBibtex=flaggedResults.map(r=>entryToBibtex(r.entry)).join('\n\n');
-  
-  return{bibtex,verifiedBibtex,flaggedBibtex,verifiedResults,flaggedResults,results,stats,unresolved};
-}
-function sleep(ms){return new Promise(r=>setTimeout(r,ms));}
-
-// ══════════════════════════════════════════════════════════════════════════════
-// SECTION 7: VERIFICATION
-// ══════════════════════════════════════════════════════════════════════════════
-const AI_TITLE_PATTERNS=[
-  {pat:/\bexploring\s+the\s+(role|impact|effect|influence|relationship|dynamics|interplay)\s+of\b/i,weight:3,msg:'AI template: "Exploring the [X] of"'},
-  {pat:/\ba\s+(comprehensive|systematic|scoping|thematic|narrative|integrative|critical)\s+(review|analysis|study|investigation|examination|synthesis|overview)\s+(of|on|into)\b/i,weight:3,msg:'AI template: "A [adj] review/analysis of"'},
-  {pat:/\btoward[s]?\s+(a|an|the)\s+(framework|model|understanding|approach|taxonomy|ontology|theory|paradigm)\b/i,weight:3,msg:'AI template: "Towards a [framework/model]"'},
-  {pat:/\ban?\s+(empirical|qualitative|quantitative|mixed[\s-]method)\s+(study|investigation|analysis|exploration|inquiry|examination)\s+(of|on|into)\b/i,weight:3,msg:'AI template: "An empirical study of"'},
-  {pat:/\bthe\s+(nexus|interplay|intersection|confluence|synergy|nexus|interface|dynamics)\s+(of|between)\b/i,weight:3,msg:'AI template: "The nexus/interplay of"'},
-  {pat:/\b(unveiling|navigating|harnessing|leveraging|unpacking|unraveling|demystifying|reimagining)\b.*\b(era|landscape|paradigm|ecosystem|frontier)\b/i,weight:3,msg:'AI buzzword combination detected'},
-  {pat:/\b(challenges?|opportunities?)\s+and\s+(opportunities?|challenges?)\s+(in|of|for)\b/i,weight:3,msg:'AI cliché: "challenges and opportunities"'},
-  {pat:/\b(role|impact|influence|effect)\s+of\s+\w+\s+on\s+(performance|behavior|outcome|satisfaction|intention|adoption|engagement|trust)\b/i,weight:2,msg:'AI pattern: [X] effect on [generic outcome]'},
-  {pat:/\breview\s+of\s+the\s+(literature|existing\s+literature|current\s+literature)\b/i,weight:3,msg:'AI template: "review of the literature"'},
-  {pat:/\btoward\s+a\s+better\s+(understanding|model|framework)\b/i,weight:3,msg:'AI template: "toward a better understanding"'},
-  {pat:/\bin\s+the\s+(digital\s+age|era\s+of|age\s+of|context\s+of)\b/i,weight:2,msg:'AI cliché: "in the digital age"'},
-];
-const FAKE_JOURNAL_PATTERNS=[/\b(international\s+journal\s+of\s+(advanced|innovative|modern|global|universal|emerging|progressive|interdisciplinary)\s+(research|studies|science|knowledge|engineering))\b/i,/\b(global\s+journal\s+of\s+(computer\s+science|management|business|engineering|humanities))\b/i,/\b(iosr\s+journal)\b/i,/\b(ijarcsse|ijarcce|ijetae|ijeset|ijltemas|ijsr)\b/i];
-const KNOWN_LEGITIMATE_VENUES=new Set(['nature','science','cell','lancet','jama','bmj','plos','ieee','acm','springer','elsevier','wiley','oxford','cambridge','harvard','mit','stanford','ieee transactions','ieee communications','ieee network','ieee access','ieee journal','ieee letters','ieee systems','ieee signal','ieee communications surveys and tutorials','ieee commun. surveys tuts.','ieee commun. surveys','ieee commun. lett.','ieee trans. commun.','ieee trans. wireless commun.','ieee wireless commun.','ieee trans. veh. technol.','ieee trans. mob. comput.','ieee internet of things','ieee iot journal','acm computing surveys','acm transactions','communications of the acm','infocom','sigcomm','mobicom','globecom','icc','vtc','wcnc','pimrc','nature communications','scientific reports','physical review','proceedings of the ieee','information systems research','mis quarterly','management science','new england journal of medicine','transactions on services computing','ieee transactions on services computing']);
-function isLikelyLegitimateVenue(venue){const vl=(venue||'').toLowerCase().trim();if(!vl)return false;for(const v of KNOWN_LEGITIMATE_VENUES){if(vl.includes(v)||v.includes(vl.split(' ')[0]))return true;}if(vl.startsWith('ieee'))return true;if(/\b(acm|springer|elsevier|wiley|oxford|cambridge)\b/i.test(venue))return true;return false;}
-function isValidDOI(doi){return doi?/^10\.\d{4,9}\/\S+/.test(doi.trim()):null;}
-function isPlausibleYear(year){if(!year)return null;const y=parseInt(year,10);return y>=1800&&y<=new Date().getFullYear()+1;}
-function isPlausibleVolume(volume,year){if(!volume||!year)return null;const v=parseInt(volume,10),y=parseInt(year,10);if(isNaN(v)||isNaN(y))return null;return v>=1&&v<=(y-1900+50);}
-function isPlausiblePages(pages){if(!pages)return null;if(/^[eEsS]?\d+$/.test(pages.trim()))return true;const m=pages.match(/(\d+)\s*[-–]\s*(\d+)/);if(!m)return null;const s=parseInt(m[1]),e=parseInt(m[2]);return e>=s&&(e-s)<2000;}
-function isTitleExactMatch(a,b){if(!a||!b)return false;const norm=s=>s.toLowerCase().replace(/[^a-z0-9\s]/g,'').replace(/\s+/g,' ').trim();return norm(a)===norm(b);}
-
-function verifyEntry(entry,source,originalTitle,apiTitle){
-  const flags=[],aiSignals=[],checks={};
-  const titleToCheck=originalTitle||entry.title||'';
-  const resolvedApiTitle=apiTitle||entry.title||'';
-  const venue=(entry.journal||entry.booktitle||'').trim();
-  const venueIsIEEE=/\bieee\b/i.test(venue)||/\bieee\b/i.test(titleToCheck);
-  if(source!=='local'){
-    const exactMatch=isTitleExactMatch(titleToCheck,resolvedApiTitle);
-    const simScore=titleSimilarity(titleToCheck,resolvedApiTitle);
-    if(exactMatch||simScore>=0.75){checks.apiVerified=true;checks.titleMatchStrict=true;}
-    else if(simScore>=0.50){checks.apiVerified=true;checks.titleMatchStrict=false;flags.push(`API found similar title (${Math.round(simScore*100)}%) — verify manually`);}
-    else if(simScore>=0.35){checks.apiVerified='partial';checks.titleMatchStrict=false;flags.push(`Loose API match (${Math.round(simScore*100)}%) — may be a different paper`);}
-    else{checks.apiVerified=false;checks.titleMatchStrict=false;flags.push(`API match too loose (${Math.round(simScore*100)}%) — not confirmed`);}
-  }else{checks.apiVerified=false;checks.titleMatchStrict=false;flags.push('Not found in Crossref, Semantic Scholar, or OpenAlex');}
-  if(entry.doi){checks.doi=isValidDOI(entry.doi);if(!checks.doi)flags.push(`Malformed DOI: "${entry.doi}"`);}
-  else{checks.doi=null;const y=parseInt(entry.year,10);if(!isNaN(y)&&y>=2000&&source==='local')flags.push('No DOI — post-2000 papers almost always have one');}
-  const yearOk=isPlausibleYear(entry.year);checks.year=yearOk;
-  if(yearOk===false)flags.push(`Implausible year: "${entry.year}"`);
-  if(yearOk===null)flags.push('Year missing');
-  if(entry.volume&&entry.year){const volOk=isPlausibleVolume(entry.volume,entry.year);checks.volume=volOk;if(volOk===false)flags.push(`Implausible volume (${entry.volume}) for year ${entry.year}`);}
-  if(entry.pages){checks.pages=isPlausiblePages(entry.pages);if(checks.pages===false)flags.push(`Suspicious page range: "${entry.pages}"`);}
-  if(titleToCheck&&!venueIsIEEE){
-    let totalWeight=0;
-    for(const{pat,weight,msg}of AI_TITLE_PATTERNS){if(pat.test(titleToCheck)){aiSignals.push(msg);totalWeight+=weight;}}
-    checks.aiTitle=aiSignals.length===0;
-    if(totalWeight>=6)flags.push(`STRONG AI hallucination pattern in title (${aiSignals.length} signals)`);
-    else if(totalWeight>=3)flags.push(`AI-template phrasing in title: ${aiSignals[0]}`);
-    if(titleToCheck.split(/\s+/).length<=4){const genericWords=['study','review','analysis','research','paper','work','approach'];if(genericWords.some(w=>titleToCheck.toLowerCase().includes(w))){flags.push('Suspiciously short and generic title');aiSignals.push('Short generic title');}}
-  }else{checks.aiTitle=true;}
-  if(!entry.authors?.length){flags.push('No authors found');checks.authors=false;}
-  else{const badAuthors=entry.authors.filter(a=>/^\s*[A-Z]\.\s*$/.test(a)||/\d/.test(a)||/^(Dr|Prof|Mr|Mrs|Ms)\.\s/i.test(a));checks.authors=badAuthors.length===0;badAuthors.slice(0,2).forEach(a=>flags.push(`Suspicious author name: "${a}"`));if(entry.authors.length>30)flags.push(`Unusually high author count (${entry.authors.length})`);}
-  if(venue){let predatory=FAKE_JOURNAL_PATTERNS.some(p=>p.test(venue));checks.journal=!predatory;if(predatory)flags.push(`Predatory/fake journal pattern: "${venue}"`);else if(source==='local'&&!isLikelyLegitimateVenue(venue)&&entry.type==='article')flags.push(`Unrecognized journal — verify: "${venue.slice(0,50)}"`);}
-  else if(entry.type==='article'){checks.journal=null;flags.push('Journal name could not be parsed');}
-  if(entry.type==='article'&&!entry.journal&&!entry.booktitle)flags.push('Article without journal/venue');
-  if(entry.type==='book'&&!entry.publisher&&!entry.doi)flags.push('Book without publisher or DOI');
-  checks.consistency=!flags.some(f=>f.includes('Article without')||f.includes('Book without'));
-  const notConfirmed=checks.apiVerified===false;const strongAI=aiSignals.length>=2;
-  checks.notFake=!(notConfirmed&&strongAI);
-  const weights={apiVerified:35,titleMatchStrict:20,doi:10,year:8,aiTitle:10,authors:7,journal:5,pages:3,consistency:2};
-  let score=0,totalW=0;
-  for(const[key,weight]of Object.entries(weights)){const val=checks[key];totalW+=weight;if(val===true)score+=weight;else if(val==='partial')score+=weight*0.4;else if(val===null)score+=weight*0.5;}
-  const finalScore=Math.round((score/totalW)*100);
-  let verdict;
-  const isHighAI=aiSignals.length>=2||(aiSignals.length>=1&&notConfirmed);
-  if(notConfirmed&&isHighAI)verdict='fake';
-  else if(finalScore>=68&&checks.apiVerified===true)verdict='ok';
-  else if(finalScore>=42||checks.apiVerified==='partial'||checks.apiVerified===true)verdict='warn';
-  else verdict='suspect';
-  return{verdict,score:finalScore,flags,aiSignals,checks};
-}
-
-// ══════════════════════════════════════════════════════════════════════════════
-// SECTION 8: BIBTEX OUTPUT
-// ══════════════════════════════════════════════════════════════════════════════
-function makeCiteKey(entry){
-  const firstAuthor=entry.authors?.[0]||'unknown';
-  const lastName=firstAuthor.split(',')[0].replace(/\s+/g,'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z]/g,'');
-  const year=entry.year||'0000';
-  const stop=new Set(['the','a','an','of','in','on','for','and','to','with','from','is','are','via','its','new','using','toward','towards']);
-  const titleWords=(entry.title||entry.booktitle||'').split(/\s+/).map(w=>w.toLowerCase().replace(/[^a-z]/g,''));
-  const tw=titleWords.find(w=>w.length>2&&!stop.has(w))||'ref';
-  return`${lastName}${year}${tw}`;
-}
-function entryToBibtex(entry){
-  const key=makeCiteKey(entry);const fields=[];
-  const add=(n,v)=>{if(v&&String(v).trim())fields.push([n,String(v).trim()]);};
-  if(entry.authors?.length)add('author',entry.authors.join(' and '));
-  add('title',entry.title);
-  if(entry.type==='article'){add('journal',entry.journal);add('volume',entry.volume);add('number',entry.number);add('pages',entry.pages);add('doi',entry.doi);}
-  else if(entry.type==='book'){add('publisher',entry.publisher);add('address',entry.address);add('doi',entry.doi);}
-  else if(entry.type==='incollection'||entry.type==='inproceedings'){add('booktitle',entry.booktitle);add('editor',entry.editor);add('pages',entry.pages);add('publisher',entry.publisher);add('organization',entry.organization);add('doi',entry.doi);}
-  else{
-    // misc / techreport / phdthesis / unknown — write every field we actually have
-    // so a mis-typed entry still gets all its metadata rather than just doi
-    add('journal',entry.journal);add('booktitle',entry.booktitle);
-    add('volume',entry.volume);add('number',entry.number);add('pages',entry.pages);
-    add('publisher',entry.publisher);add('address',entry.address);
-    add('editor',entry.editor);add('organization',entry.organization);
-    add('doi',entry.doi);
-  }
-  add('year',entry.year);if(entry.note)add('note',entry.note);
-  const fieldLines=fields.filter(([,v])=>v).map(([k,v])=>`  ${k} = {${v}}`).join(',\n');
-  return`@${entry.type}{${key},\n${fieldLines}\n}`;
-}
-
-// ══════════════════════════════════════════════════════════════════════════════
-// SECTION 9: LLM VALIDATOR
-// ══════════════════════════════════════════════════════════════════════════════
-async function llmStructuralCheck(rawRef,parsedEntry){
-  try{
-    const prompt=`You are a reference bibliography validator. A reference was NOT found in Crossref, Semantic Scholar, or OpenAlex. Assess whether its fields are internally self-consistent and structurally plausible — you are NOT asked to verify whether the paper exists.\n\nReference text:\n"""\n${rawRef.slice(0,600)}\n"""\n\nParsed fields:\n- Title: ${parsedEntry.title||'(not parsed)'}\n- Authors: ${(parsedEntry.authors||[]).join(', ')||'(not parsed)'}\n- Journal: ${parsedEntry.journal||'(not parsed)'}\n- Year: ${parsedEntry.year||'(not parsed)'}\n- Volume: ${parsedEntry.volume||'(not parsed)'}\n- Pages: ${parsedEntry.pages||'(not parsed)'}\n\nRespond ONLY with a JSON object, no markdown:\n{"structurePlausible": true|false, "confidence": "high"|"medium"|"low", "reason": "one sentence"}`;
-    const res=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'claude-haiku-4-5-20251001',max_tokens:150,messages:[{role:'user',content:prompt}]})});
-    if(!res.ok)return null;
-    const data=await res.json();
-    const text=(data.content||[]).map(c=>c.text||'').join('').trim();
-    return JSON.parse(text.replace(/```json|```/g,'').trim());
-  }catch{return null;}
-}
-
-// ══════════════════════════════════════════════════════════════════════════════
-// SECTION 10: UI CONTROLLER
-// ══════════════════════════════════════════════════════════════════════════════
-const refInput=document.getElementById('refInput');
-const formatSelect=document.getElementById('formatSelect');
-const convertBtn=document.getElementById('convertBtn');
-const clearBtn=document.getElementById('clearBtn');
-const outputSection=document.getElementById('outputSection');
-const progressSection=document.getElementById('progressSection');
-const errorSection=document.getElementById('errorSection');
-const unresolvedSection=document.getElementById('unresolvedSection');
-const errorMsg=document.getElementById('errorMsg');
-const statsBar=document.getElementById('statsBar');
-const progressList=document.getElementById('progressList');
-const progressLabel=document.getElementById('progressLabel');
-const progressBarFill=document.getElementById('progressBarFill');
-const toast=document.getElementById('toast');
-const unresolvedList=document.getElementById('unresolvedList');
-const unresolvedCount=document.getElementById('unresolvedCount');
-const themeBtn=document.getElementById('themeBtn');
-const bibOutputVerified=document.getElementById('bibOutputVerified');
-const bibOutputFlagged=document.getElementById('bibOutputFlagged');
-const verifiedBlock=document.getElementById('verifiedBlock');
-const flaggedBlock=document.getElementById('flaggedBlock');
-const verifiedCount=document.getElementById('verifiedCount');
-const flaggedCount=document.getElementById('flaggedCount');
-
-let lastVerifiedBib='',lastFlaggedBib='',isRunning=false;
-
-function applyTheme(t){document.documentElement.setAttribute('data-theme',t);themeBtn.textContent=t==='dark'?'☀️ Light':'🌙 Dark';try{localStorage.setItem('authenticite-theme',t);}catch(_){}}
-(function(){try{const s=localStorage.getItem('authenticite-theme');applyTheme(s==='light'?'light':'dark');}catch(_){applyTheme('dark');}})();
-themeBtn.addEventListener('click',()=>applyTheme(document.documentElement.getAttribute('data-theme')==='dark'?'light':'dark'));
-
-const FORMAT_HINTS={auto:'Auto-detect mode: each reference is independently classified.',ieee:'[1] J. Smith, "Title of paper," IEEE Trans. X, vol. 10, pp. 1–10, 2020.',apa:'Smith, J. (2020). Title of paper. IEEE Transactions on X, 10(1), 1–10.',mla:'Smith, John. "Title of Paper." IEEE Transactions on X 10.1 (2020): 1–10.',chicago:'Smith, John. 2020. "Title of Paper." IEEE Transactions on X 10 (1): 1–10.',vancouver:'1. Smith J. Title of paper. IEEE Trans X. 2020;10(1):1–10.',harvard:"Smith, J. (2020) 'Title of paper', IEEE Transactions on X, 10(1), pp. 1–10."};
-formatSelect.addEventListener('change',()=>{document.getElementById('formatHint').textContent=FORMAT_HINTS[formatSelect.value]||'';});
-
-convertBtn.addEventListener('click',async()=>{
-  if(isRunning)return;
-  const raw=sanitizeRawInput(refInput.value.trim());
-  hideAll();
-  if(!raw){showError('Please paste your references first.');return;}
-  isRunning=true;convertBtn.disabled=true;convertBtn.querySelector('span').textContent='Fetching…';
-  try{
-    const refStrings=splitReferences(raw).filter(r=>r.trim());
-    if(!refStrings.length)throw new Error('No references detected. Make sure each reference starts on a new line.');
-    initProgressList(refStrings);
-    progressSection.classList.remove('hidden');
-    progressLabel.textContent=`Verifying ${refStrings.length} reference${refStrings.length>1?'s':''} against 3 APIs…`;
-    const{verifiedBibtex,flaggedBibtex,verifiedResults,flaggedResults,stats,unresolved}=await lookupAllReferences(raw,formatSelect.value,(i,state,label,source,verifyResult,strategyLabel)=>{updateProgressItem(i,state,label,source,verifyResult,strategyLabel);},(done,total)=>{progressBarFill.style.width=`${Math.round((done/total)*100)}%`;progressLabel.textContent=`${done} / ${total} resolved`;});
-    lastVerifiedBib=verifiedBibtex;lastFlaggedBib=flaggedBibtex;
-    renderOutput(verifiedBibtex,flaggedBibtex,verifiedResults,flaggedResults,stats);
-    renderUnresolved(unresolved);
-  }catch(err){showError(err.message||'Unexpected error. Please try again.');}
-  finally{isRunning=false;convertBtn.disabled=false;convertBtn.querySelector('span').textContent='Convert & Verify';}
-});
-
-clearBtn.addEventListener('click',()=>{refInput.value='';hideAll();refInput.focus();});
-
-document.getElementById('copyVerifiedBtn').addEventListener('click',async()=>{try{await navigator.clipboard.writeText(lastVerifiedBib);showToast('Verified BibTeX copied!');}catch{fallbackCopy(lastVerifiedBib);}});
-document.getElementById('copyFlaggedBtn').addEventListener('click',async()=>{try{await navigator.clipboard.writeText(lastFlaggedBib);showToast('Flagged BibTeX copied!');}catch{fallbackCopy(lastFlaggedBib);}});
-document.getElementById('downloadVerifiedBtn').addEventListener('click',()=>downloadBib(lastVerifiedBib,'verified-references.bib'));
-document.getElementById('downloadFlaggedBtn').addEventListener('click',()=>downloadBib(lastFlaggedBib,'flagged-references.bib'));
-
-function fallbackCopy(text){const ta=document.createElement('textarea');ta.value=text;document.body.appendChild(ta);ta.select();document.execCommand('copy');document.body.removeChild(ta);showToast('Copied!');}
-function downloadBib(text,filename){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([text],{type:'text/plain'}));a.download=filename;a.click();}
-
-function initProgressList(refStrings){
-  progressList.innerHTML='';progressBarFill.style.width='0%';
-  refStrings.forEach((ref,i)=>{
-    const numless=ref.replace(/^\s*(\[\d+\]|\d+[\.)])\s*/,'');
-    const quoted=numless.match(/[""\u201C\u201D\u2018\u2019']([^""\u201C\u201D\u2018\u2019']{5,60})/);
-    const shortLabel=quoted?quoted[1].trim():numless.slice(0,55).replace(/,$/,'').trim();
-    const item=document.createElement('div');item.className='progress-item pending';item.id=`pi-${i}`;
-    item.innerHTML=`<span class="pi-icon status-icon-pending" id="pi-icon-${i}">○</span><span class="pi-num">[${i+1}]</span><span class="pi-text"><span class="pi-title">${escHtml(shortLabel)}…</span><span class="pi-source" id="pi-src-${i}">waiting</span><span class="pi-strategy" id="pi-strat-${i}"></span></span><span class="pi-verify" id="pi-vfy-${i}"></span>`;
-    progressList.appendChild(item);
-  });
-}
-
-function updateProgressItem(i,state,label,source,verifyResult,strategyLabel){
-  const item=document.getElementById(`pi-${i}`);const srcEl=document.getElementById(`pi-src-${i}`);const stratEl=document.getElementById(`pi-strat-${i}`);const vfyEl=document.getElementById(`pi-vfy-${i}`);
-  if(!item)return;
-  const isFake=verifyResult?.verdict==='fake';
-  item.className=`progress-item ${state}${isFake?' fake-item':''}`;
-  const icons={pending:'○',fetching:'<span class="spin">◌</span>',found:'●',fallback:'◐',failed:'✕'};
-  const iconEl=item.querySelector('.pi-icon');
-  iconEl.className=`pi-icon status-icon-${isFake?'fallback':state}`;
-  iconEl.innerHTML=isFake?'✕':(icons[state]||'○');
-  if(state==='found'||state==='fallback'){
-    const srcClass={crossref:'src-crossref',semantic:'src-semantic',openalex:'src-openalex',local:'src-local'}[source]||'';
-    const srcLabel={crossref:'✓ via Crossref',semantic:'✓ via Semantic Scholar',openalex:'✓ via OpenAlex',local:'✕ not found in any API'}[source]||'';
-    srcEl.className=`pi-source ${srcClass}`;srcEl.textContent=srcLabel;
-    if(strategyLabel&&stratEl)stratEl.textContent=strategyLabel;
-    const titleEl=item.querySelector('.pi-title');
-    if(label&&label.length>3)titleEl.textContent=label.length>70?label.slice(0,70)+'…':label;
-  }else if(state==='fetching'){srcEl.className='pi-source';srcEl.textContent=label||'searching…';if(stratEl)stratEl.textContent='';}
-  if(vfyEl&&verifyResult){
-    const{verdict,score,flags,aiSignals}=verifyResult;
-    const badgeClass={ok:'vfy-ok',warn:'vfy-warn',suspect:'vfy-suspect',fake:'vfy-fake'}[verdict]||'';
-    const badgeLabel=verdict==='ok'?`✔ ${score}%`:verdict==='warn'?`⚠ ${score}%`:verdict==='suspect'?`? ${score}%`:`✕ FAKE`;
-    const allFlags=[...(flags||[]),...(aiSignals||[]).map(s=>`AI: ${s}`)];
-    const tipText=allFlags.length?allFlags.map(f=>`• ${f}`).join('\n'):'All checks passed';
-    vfyEl.innerHTML=`<span class="vfy-badge ${badgeClass}" title="${escHtml(tipText)}">${badgeLabel}</span>`;
-  }
-}
-
-function renderOutput(verifiedBib,flaggedBib,verifiedResults,flaggedResults,stats){
-  // Verified section
-  if(verifiedResults.length>0){
-    bibOutputVerified.innerHTML=syntaxHighlight(verifiedBib);
-    verifiedCount.textContent=`${verifiedResults.length} entr${verifiedResults.length===1?'y':'ies'}`;
-    verifiedBlock.style.display='';
-  }else{verifiedBlock.style.display='none';}
-  // Flagged section
-  if(flaggedResults.length>0){
-    bibOutputFlagged.innerHTML=syntaxHighlight(flaggedBib);
-    flaggedCount.textContent=`${flaggedResults.length} entr${flaggedResults.length===1?'y':'ies'}`;
-    flaggedBlock.style.display='';
-  }else{flaggedBlock.style.display='none';}
-  // Stats bar
-  const dot=(c='')=>`<span class="dot" style="${c?`background:${c}`:''}"></span>`;
-  statsBar.innerHTML=`<span><strong>${stats.total}</strong> total</span>${stats.crossref?`<span>${dot('var(--success)')}${stats.crossref} Crossref</span>`:''} ${stats.semantic?`<span>${dot('var(--accent2)')}${stats.semantic} Semantic Scholar</span>`:''} ${stats.openalex?`<span>${dot('#3b82f6')}${stats.openalex} OpenAlex</span>`:''} ${stats.local?`<span>${dot('var(--warn)')}${stats.local} not found</span>`:''} ${stats.ok?`<span>${dot('var(--success)')}${stats.ok} verified</span>`:''} ${stats.warn?`<span>${dot('var(--warn)')}${stats.warn} warnings</span>`:''} ${stats.suspect?`<span>${dot('var(--warn)')}${stats.suspect} suspect</span>`:''} ${stats.fake?`<span>${dot('var(--fake)')}${stats.fake} FAKE</span>`:''}`;
-  outputSection.classList.remove('hidden');
-  outputSection.scrollIntoView({behavior:'smooth',block:'nearest'});
-}
-
-function renderUnresolved(unresolved){
-  if(!unresolved?.length){unresolvedSection.classList.add('hidden');return;}
-  unresolvedCount.textContent=`${unresolved.length} flagged`;
-  unresolvedList.innerHTML='';
-  unresolved.forEach(r=>{
-    const vfy=r.verify||{};const isFake=vfy.verdict==='fake',isSuspect=vfy.verdict==='suspect';
-    const div=document.createElement('div');div.className=`unresolved-item${isFake?' is-fake':''}`;
-    const fakeBadge=isFake?'<span class="unresolved-ai-badge">🤖 AI-GENERATED / FAKE</span>':isSuspect?'<span class="unresolved-ai-badge" style="background:rgba(180,83,9,.08);color:var(--warn);border-color:rgba(180,83,9,.3)">⚠ Suspect — Not confirmed</span>':'<span class="unresolved-ai-badge" style="background:var(--surface3);color:var(--text-muted);border-color:var(--border)">? Not found online</span>';
-    const flagsHtml=vfy.flags?.length?`<ul class="unresolved-flags">${vfy.flags.map(f=>`<li class="${/ai|fake|hallucin/i.test(f)?'flag-fake':''}">${escHtml(f)}</li>`).join('')}</ul>`:'';
-    const aiSigHtml=vfy.aiSignals?.length?`<div class="ai-signals-list">${vfy.aiSignals.map(s=>`<span class="ai-signal-tag">🤖 ${escHtml(s)}</span>`).join('')}</div>`:'';
-    const title=(r.entry?.title||r.original?.title||r.original?.raw||'').slice(0,100);
-    const rawOrig=(r.original?.raw||'').slice(0,200);
-    div.innerHTML=`<div style="display:flex;align-items:flex-start;gap:8px;flex-wrap:wrap"><span class="unresolved-num">[${r.index}]</span><span class="unresolved-title">${escHtml(title)}${title.length>=100?'…':''}</span>${fakeBadge}</div><div class="unresolved-raw">${escHtml(rawOrig)}${rawOrig.length>=200?'…':''}</div>${aiSigHtml}${flagsHtml}<div class="unresolved-tip">${isFake?'⛔ High confidence this reference does not exist. Do not use in a manuscript.':'⚠ Could not confirm existence. Search manually in Google Scholar or the journal website.'}</div>`;
-    unresolvedList.appendChild(div);
-  });
-  unresolvedSection.classList.remove('hidden');
-  unresolvedSection.scrollIntoView({behavior:'smooth',block:'nearest'});
-}
-
-function syntaxHighlight(bib){
-  const esc=s=>s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-  return bib.split('\n').map(line=>{
-    const typeMatch=line.match(/^@(\w+)\{(.+),$/);
-    if(typeMatch)return`<span class="bib-type">@${esc(typeMatch[1])}</span>{<span class="bib-key">${esc(typeMatch[2])}</span>,`;
-    const fieldMatch=line.match(/^(\s+)(\w+)(\s*=\s*)\{(.*)\}(,?)$/);
-    if(fieldMatch)return`${fieldMatch[1]}<span class="bib-field">${esc(fieldMatch[2])}</span>${esc(fieldMatch[3])}<span class="bib-brace">{</span><span class="bib-value">${esc(fieldMatch[4])}</span><span class="bib-brace">}</span>${fieldMatch[5]}`;
-    if(line.trim()==='}')return`<span class="bib-brace">}</span>`;
-    return esc(line);
-  }).join('\n');
-}
-
-function hideAll(){[outputSection,progressSection,errorSection,unresolvedSection].forEach(el=>el.classList.add('hidden'));}
-function showError(msg){errorMsg.textContent=msg;errorSection.classList.remove('hidden');errorSection.scrollIntoView({behavior:'smooth',block:'nearest'});}
-function showToast(msg){toast.textContent=msg;toast.classList.add('show');setTimeout(()=>toast.classList.remove('show'),2400);}
-function escHtml(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
-
-
-async function updateAuthentiCiteStats(totalRefs, foundAPICount) {
-  try {
-    // Increment total references validated
-    await fetch(`https://api.countapi.xyz/update/authenticite_realtime/references_validated?amount=${totalRefs}`, { cache: 'no-store' });
-    
-    // Update accuracy numerator (total API-found references) and denominator (total processed)
-    const numeratorRes = await fetch('https://api.countapi.xyz/get/authenticite_realtime/accuracy_numerator', { cache: 'no-store' });
-    const denominatorRes = await fetch('https://api.countapi.xyz/get/authenticite_realtime/accuracy_denominator', { cache: 'no-store' });
-    let numerator = (await numeratorRes.json()).value || 0;
-    let denominator = (await denominatorRes.json()).value || 0;
-    numerator += foundAPICount;
-    denominator += totalRefs;
-    const newAccuracy = denominator === 0 ? 0 : Math.round((numerator / denominator) * 100);
-    await fetch(`https://api.countapi.xyz/set/authenticite_realtime/accuracy_numerator?value=${numerator}`, { cache: 'no-store' });
-    await fetch(`https://api.countapi.xyz/set/authenticite_realtime/accuracy_denominator?value=${denominator}`, { cache: 'no-store' });
-    await fetch(`https://api.countapi.xyz/set/authenticite_realtime/accuracy_percent?value=${newAccuracy}`, { cache: 'no-store' });
-  } catch(e) { console.warn(e); }
-}
-
-// Hook into your existing lookupAllReferences call inside convertBtn click handler.
-// After const { bibtex, results, stats } = await lookupAllReferences(...), call:
-// const foundAPICount = stats.crossref + stats.semantic + stats.openalex;
-// await updateAuthentiCiteStats(results.length, foundAPICount);
-</script>
+<script src="js/parser.js"></script>
+<script src="js/bibtex.js"></script>
+<script src="js/match.js"></script>
+<script src="js/lookup.js"></script>
+<script src="js/app.js"></script>
 </body>
 </html>
