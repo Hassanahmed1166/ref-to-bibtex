@@ -167,17 +167,13 @@
   <!-- Animated Statistics Section -->
   <div class="card" style="margin-bottom:20px;">
     <div class="about-section" style="margin-bottom:0">
-      <h2>Your usage</h2>
-      <p>Counts for this browser only. Nothing is sent anywhere.</p>
+      <h2>Platform Analytics</h2>
+      <p>Project numbers come live from GitHub; usage numbers are counted in this browser only — nothing is sent anywhere.</p>
       <div class="stats-container">
-        <div class="stat-card">
-          <div class="stat-value loading" id="visitorCount">0</div>
-          <div class="stat-label">References checked</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-value loading" id="verifiedCount">0</div>
-          <div class="stat-label">Matched to a database record</div>
-        </div>
+        <div class="stat-card"><div class="stat-value loading" id="starCount">…</div><div class="stat-label">GitHub stars</div></div>
+        <div class="stat-card"><div class="stat-value loading" id="forkCount">…</div><div class="stat-label">GitHub forks</div></div>
+        <div class="stat-card"><div class="stat-value loading" id="visitorCount">0</div><div class="stat-label">References checked (you)</div></div>
+        <div class="stat-card"><div class="stat-value loading" id="verifiedCount">0</div><div class="stat-label">Matched to a record (you)</div></div>
       </div>
     </div>
   </div>
@@ -269,11 +265,14 @@
 </footer>
 
 <script>
-// Usage stats are kept locally in this browser (written by the converter) — no third-party counters.
 (function () {
+  function put(id, v) { var e = document.getElementById(id); if (e) { e.classList.remove('loading'); e.textContent = typeof v === 'number' ? v.toLocaleString() : v; } }
   var st = {}; try { st = JSON.parse(localStorage.getItem('ac-stats') || '{}'); } catch (_) {}
-  function put(id, v) { var e = document.getElementById(id); if (e) { e.classList.remove('loading'); e.textContent = (v || 0).toLocaleString(); } }
-  put('visitorCount', st.refs); put('verifiedCount', st.verified);
+  put('visitorCount', st.refs || 0); put('verifiedCount', st.verified || 0);
+  fetch('https://api.github.com/repos/Hassanahmed1166/ref-to-bibtex')
+    .then(function (r) { if (!r.ok) throw 0; return r.json(); })
+    .then(function (d) { put('starCount', d.stargazers_count); put('forkCount', d.forks_count); })
+    .catch(function () { put('starCount', '–'); put('forkCount', '–'); });
 })();
 </script>
 </body>
