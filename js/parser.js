@@ -44,7 +44,7 @@
   function extractReferenceSection(text) {
     const lines = text.split('\n');
     const idx = lines.findIndex(l => REF_HEADING.test(l));
-    if (idx < 0 || lines.length < 15) return { text, found: false };
+    if (idx < 0 || lines.slice(0, idx).filter(l => l.trim()).length < 3) return { text, found: false };   // heading must follow some body text (a bare list may start with "References")
     let end = lines.length;
     for (let i = idx + 3; i < lines.length; i++) if (NEXT_SECTION.test(lines[i])) { end = i; break; }
     return { text: lines.slice(idx + 1, end).join('\n'), found: true };
