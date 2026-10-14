@@ -8,7 +8,9 @@
 <link rel="icon" href="favicon.png"/>
 <link rel="stylesheet" href="style.css"/>
 <link rel="stylesheet" href="css/converter.css"/>
+<link rel="stylesheet" href="css/polish.css"/>
 <script src="js/theme.js"></script>
+<script src="js/fx.js" defer></script>
 </head>
 <body>
 <a class="skip-link" href="#refInput">Skip to input</a>
@@ -119,6 +121,7 @@
       <div class="runbar-row"><span id="progressLabel" aria-live="polite"></span><button class="btn btn-ghost btn-sm" id="cancelBtn" type="button">Cancel</button></div>
     </div>
 
+    <div class="ratio" id="ratio" aria-hidden="true"></div>
     <div class="summary-row">
       <div class="summary" id="summary" role="group" aria-label="Filter results"></div>
       <div class="opt-inline">
@@ -146,6 +149,7 @@
       <button class="btn btn-primary" id="downloadBtn" type="button">Download .bib</button>
     </div>
 
+    <div class="kbd-legend" aria-hidden="true"><span><kbd>J</kbd><kbd>K</kbd> next / previous</span><span><kbd>A</kbd> accept</span><span><kbd>R</kbd> reject</span><span><kbd>E</kbd> edit BibTeX</span><span><kbd>Esc</kbd> clear focus</span></div>
     <div class="rows" id="rows"></div>
   </section>
 </main>
