@@ -127,6 +127,19 @@
   eq('csl cand', [csl.source, csl.type, csl.authors, csl.journal, csl.doi], ['doiresolver', 'article', ['Doe, Jane'], 'Journal Z', '10.5555/xyz']);
   eq('bibtex isbn', AC.bibtex.entryToBibtex({ type: 'book', authors: ['Goodfellow, I.'], title: 'Deep Learning', publisher: 'MIT Press', year: '2016', isbn: '9780262035613' }, 'k').includes('isbn = {9780262035613}'), true);
 
+  // ── PDF / DOCX upload support ──
+  const shortPaper = ['Title', 'Abstract text.', '1. Intro', 'Body.', '', 'References', '[1] A. One, "T1 title here," J, 2000.', '[2] B. Two, "T2 title here," J, 2001.'].join('\n');
+  eq('short paper: section found', AC.prepareInput(shortPaper).foundSection, true);
+  eq('short paper: 2 refs', AC.splitReferences(shortPaper).length, 2);
+  eq('bare list headed "References" is left alone', AC.prepareInput('References\n[1] A. One, "T1 title here," J, 2000.\n[2] B. Two, "T2 title here," J, 2001.').foundSection, false);
+  const items = [
+    { str: 'Hello', transform: [1, 0, 0, 1, 72, 700], width: 30, height: 10 },
+    { str: 'world', transform: [1, 0, 0, 1, 106, 700], width: 30, height: 10 },     // same line, gap -> space
+    { str: 'next line', transform: [1, 0, 0, 1, 72, 686], width: 40, height: 10 },  // new line
+    { str: 'new paragraph', transform: [1, 0, 0, 1, 72, 650], width: 60, height: 10 } // big gap -> blank line
+  ];
+  eq('pdf items -> lines/paragraphs', AC.files.pageToText(items), 'Hello world\nnext line\n\nnew paragraph');
+
   out.textContent += `\n${pass} passed, ${fail} failed\n`;
   window.__results = { pass, fail };
 })();

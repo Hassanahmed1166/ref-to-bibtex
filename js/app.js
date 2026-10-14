@@ -410,7 +410,20 @@
     if (state.running) return;
     el.input.value = ''; state.items = []; el.results.classList.add('hidden'); el.err.classList.add('hidden'); updateCount(); el.input.focus();
   });
-  function readFile(f) { if (!f) return; if (f.size > 2e6) { showError('That file is too large (limit 2 MB).'); return; } f.text().then(txt => { el.input.value = txt; updateCount(); toast(`Loaded ${f.name}`); }); }
+  async function readFile(f) {
+    if (!f || state.running) return;
+    const label = el.convert.querySelector('span');
+    const old = label.textContent;
+    el.convert.disabled = true;
+    try {
+      const res = await AC.files.extractText(f, (i, n) => { label.textContent = `Reading page ${i}/${n}…`; });
+      el.input.value = res.text; updateCount();
+      const n = AC.splitReferences(res.text).length;
+      toast(res.kind === 'text' ? `Loaded ${f.name}` : `Read ${f.name}${res.pages ? ' (' + res.pages + ' pages)' : ''} — ${n} reference${n === 1 ? '' : 's'} found`);
+      if (res.kind !== 'text' && !n) showError('Read the file, but could not find a reference list in it. Check the text box and edit it if needed.');
+    } catch (e) { showError(e.message || 'Could not read that file.'); }
+    finally { label.textContent = old; el.convert.disabled = state.running; }
+  }
   el.file.addEventListener('change', () => { readFile(el.file.files[0]); el.file.value = ''; });
   ['dragover', 'dragenter'].forEach(n => el.input.addEventListener(n, e => { e.preventDefault(); el.input.classList.add('drag'); }));
   ['dragleave', 'drop'].forEach(n => el.input.addEventListener(n, () => el.input.classList.remove('drag')));

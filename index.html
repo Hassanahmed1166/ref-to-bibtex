@@ -34,7 +34,7 @@
 <header class="hero">
   <div class="hero-eyebrow">Reference resolver</div>
   <h1 class="hero-title">References <span class="arrow">→</span> BibTeX</h1>
-  <p class="hero-sub">Paste citations in any style. Each one is matched against Crossref, OpenAlex and Semantic Scholar, then shown <strong>side by side</strong> with its BibTeX so you can confirm it got the right paper.</p>
+  <p class="hero-sub">Paste citations in any style — or upload a PDF / Word paper. Each one is matched against Crossref, OpenAlex and Semantic Scholar, then shown <strong>side by side</strong> with its BibTeX so you can confirm it got the right paper.</p>
 </header>
 
 <main class="main wide">
@@ -51,7 +51,7 @@
     <div class="toolbar">
       <button class="btn btn-primary" id="convertBtn" type="button"><span>Convert &amp; Verify</span></button>
       <button class="btn btn-ghost" id="sampleBtn" type="button">Try an example</button>
-      <label class="btn btn-ghost file-btn">Open .txt file<input type="file" id="fileInput" accept=".txt,.md,.bib,.ris,text/plain" hidden></label>
+      <label class="btn btn-ghost file-btn">Upload PDF / DOCX / TXT<input type="file" id="fileInput" accept=".pdf,.docx,.txt,.md,.bib,application/pdf,text/plain,application/vnd.openxmlformats-officedocument.wordprocessingml.document" hidden></label>
       <button class="btn btn-ghost" id="clearBtn" type="button">Clear</button>
       <span class="kbd-hint"><kbd>Ctrl</kbd>+<kbd>Enter</kbd> to run</span>
     </div>
@@ -169,6 +169,7 @@
 <script src="js/bibtex.js"></script>
 <script src="js/match.js"></script>
 <script src="js/lookup.js"></script>
+<script src="js/files.js"></script>
 <script src="js/app.js"></script>
 </body>
 </html>

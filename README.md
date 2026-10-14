@@ -36,6 +36,7 @@ Flags such as "DOI resolves to a different paper" or "predatory-journal pattern"
 
 [CiteVerify](https://github.com/cuihuash/citeverify) is a Python tool that audits the references in PDF/Word papers. Its logic was ported to the browser:
 
+- **PDF and DOCX upload** – pick (or drop) a paper; text is extracted in your browser with [PDF.js](https://mozilla.github.io/pdf.js/) / [Mammoth](https://github.com/mwilliamson/mammoth.js) (loaded from cdnjs only when needed, files never uploaded), the References section is found automatically and each reference is checked. Scanned PDFs need OCR first; old `.doc` must be saved as `.docx`.
 - **Whole-manuscript paste** – if you paste a full paper, only the *References* section is used; page numbers, running headers, line-break hyphens and DOIs split across lines are cleaned up.
 - **Several title hypotheses per reference** – quoted, after-year, before-"In:", after-author… every hypothesis is searched/scored and the best wins.
 - **Subtitle-tolerant matching** – a record whose title differs only by a subtitle is a "strong" match, not a conflict.
