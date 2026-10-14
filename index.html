@@ -89,6 +89,7 @@
           <label class="chk"><input type="checkbox" id="pCrossref" checked> Crossref</label>
           <label class="chk"><input type="checkbox" id="pOpenalex" checked> OpenAlex</label>
           <label class="chk"><input type="checkbox" id="pSemantic" checked> Semantic Scholar</label>
+          <label class="chk"><input type="checkbox" id="pBooks" checked> Books: Open Library + Google Books</label>
         </fieldset>
         <div class="opt">
           <label for="mailto">Your email (optional)</label>
@@ -118,7 +119,16 @@
       <div class="runbar-row"><span id="progressLabel" aria-live="polite"></span><button class="btn btn-ghost btn-sm" id="cancelBtn" type="button">Cancel</button></div>
     </div>
 
-    <div class="summary" id="summary" role="group" aria-label="Filter results"></div>
+    <div class="summary-row">
+      <div class="summary" id="summary" role="group" aria-label="Filter results"></div>
+      <div class="opt-inline">
+        <label for="sortBy">Order</label>
+        <select id="sortBy" class="format-select">
+          <option value="order">As pasted</option>
+          <option value="attention">Needs attention first</option>
+        </select>
+      </div>
+    </div>
 
     <div class="export-bar">
       <div class="opt-inline">
@@ -131,6 +141,7 @@
       </div>
       <button class="btn btn-ghost btn-sm" id="acceptVerifiedBtn" type="button">✓ Accept all verified</button>
       <span class="spacer"></span>
+      <button class="btn btn-ghost" id="reportBtn" type="button" title="Spreadsheet of every reference, its status, evidence and flags">Audit report .csv</button>
       <button class="btn btn-ghost" id="copyBtn" type="button">Copy .bib</button>
       <button class="btn btn-primary" id="downloadBtn" type="button">Download .bib</button>
     </div>

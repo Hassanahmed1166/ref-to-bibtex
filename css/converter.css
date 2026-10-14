@@ -120,3 +120,6 @@ pre.bib{font-family:var(--font-mono);font-size:.76rem;line-height:1.7;white-spac
   .row-actions{margin-left:0;width:100%}
 }
 @media print{.topnav,.toolbar,.options,.export-bar,.row-actions,.site-footer{display:none!important}}
+
+.summary-row{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:12px}
+.summary-row .summary{margin-bottom:0}

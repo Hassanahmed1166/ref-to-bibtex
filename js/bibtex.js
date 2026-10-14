@@ -57,13 +57,13 @@
     article: ['author', 'title', 'journal', 'year', 'volume', 'number', 'pages', 'publisher', 'doi', 'url'],
     inproceedings: ['author', 'title', 'booktitle', 'year', 'editor', 'pages', 'publisher', 'organization', 'doi', 'url'],
     incollection: ['author', 'title', 'booktitle', 'year', 'editor', 'pages', 'publisher', 'address', 'doi', 'url'],
-    book: ['author', 'title', 'publisher', 'address', 'year', 'doi', 'url'],
+    book: ['author', 'title', 'publisher', 'address', 'year', 'isbn', 'doi', 'url'],
     techreport: ['author', 'title', 'publisher', 'year', 'doi', 'url'],
     phdthesis: ['author', 'title', 'publisher', 'year', 'doi', 'url'],
     misc: ['author', 'title', 'journal', 'booktitle', 'year', 'volume', 'number', 'pages', 'publisher', 'note', 'eprint', 'archiveprefix', 'doi', 'url']
   };
   const FIELD_MAP = { journal: 'journal', archiveprefix: 'archivePrefix' };
-  const RAW_FIELDS = new Set(['doi', 'url', 'eprint', 'archiveprefix', 'year', 'volume', 'number']);
+  const RAW_FIELDS = new Set(['isbn', 'doi', 'url', 'eprint', 'archiveprefix', 'year', 'volume', 'number']);
   const TITLE_FIELDS = new Set(['title', 'journal', 'booktitle']);
 
   /** Returns [[field, value], ...] — shared by the text writer and the side-by-side viewer. */

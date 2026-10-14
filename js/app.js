@@ -9,7 +9,7 @@
     input: $('refInput'), count: $('refCount'), hint: $('formatHint'), convert: $('convertBtn'), sample: $('sampleBtn'),
     file: $('fileInput'), clear: $('clearBtn'), format: $('formatSelect'), strict: $('strictness'), keyStyle: $('keyStyle'),
     conc: $('concurrency'), concOut: $('concurrencyOut'), mailto: $('mailto'), caps: $('protectCaps'),
-    pCr: $('pCrossref'), pOa: $('pOpenalex'), pSs: $('pSemantic'),
+    pCr: $('pCrossref'), pOa: $('pOpenalex'), pSs: $('pSemantic'), pBk: $('pBooks'), sort: $('sortBy'), report: $('reportBtn'),
     err: $('errorSection'), errMsg: $('errorMsg'), results: $('resultsSection'), runbar: $('runbar'),
     bar: $('progressBarFill'), barWrap: $('progressBar'), progressLabel: $('progressLabel'), cancel: $('cancelBtn'),
     summary: $('summary'), scope: $('scope'), acceptV: $('acceptVerifiedBtn'), copy: $('copyBtn'), download: $('downloadBtn'),
@@ -52,7 +52,7 @@
     if (s.concurrency) el.conc.value = s.concurrency;
     if (s.mailto) el.mailto.value = s.mailto;
     if (s.protectCaps === false) el.caps.checked = false;
-    if (s.providers) { el.pCr.checked = s.providers.crossref !== false; el.pOa.checked = s.providers.openalex !== false; el.pSs.checked = s.providers.semantic !== false; }
+    if (s.providers) { el.pCr.checked = s.providers.crossref !== false; el.pOa.checked = s.providers.openalex !== false; el.pSs.checked = s.providers.semantic !== false; el.pBk.checked = s.providers.books !== false; }
     applySettings(false);
   }
   function applySettings(save = true) {
@@ -60,19 +60,20 @@
     c.mailto = el.mailto.validity.valid ? el.mailto.value.trim() : '';
     c.strictness = el.strict.value;
     c.concurrency = +el.conc.value;
-    c.providers = { crossref: el.pCr.checked, openalex: el.pOa.checked, semantic: el.pSs.checked };
+    c.providers = { crossref: el.pCr.checked, openalex: el.pOa.checked, semantic: el.pSs.checked, books: el.pBk.checked };
     el.concOut.textContent = el.conc.value;
     el.hint.textContent = FORMAT_HINTS[el.format.value] || '';
     if (save) LS.set('ac-settings', { format: el.format.value, strictness: el.strict.value, keyStyle: el.keyStyle.value, concurrency: +el.conc.value, mailto: el.mailto.value, protectCaps: el.caps.checked, providers: c.providers });
   }
-  [el.format, el.strict, el.keyStyle, el.conc, el.mailto, el.caps, el.pCr, el.pOa, el.pSs].forEach(n => n.addEventListener('change', () => { applySettings(); if (state.items.length && (n === el.keyStyle || n === el.caps)) renderAll(); }));
+  [el.format, el.strict, el.keyStyle, el.conc, el.mailto, el.caps, el.pCr, el.pOa, el.pSs, el.pBk].forEach(n => n.addEventListener('change', () => { applySettings(); if (state.items.length && (n === el.keyStyle || n === el.caps)) renderAll(); }));
   el.conc.addEventListener('input', () => { el.concOut.textContent = el.conc.value; });
 
   // ── Helpers ───────────────────────────────────────────────────────────────
   const esc = s => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
   function toast(msg) { el.toast.textContent = msg; el.toast.classList.add('show'); clearTimeout(toast.t); toast.t = setTimeout(() => el.toast.classList.remove('show'), 2400); }
   function showError(msg) { el.errMsg.textContent = msg; el.err.classList.remove('hidden'); el.err.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); }
-  const SRC = { crossref: 'Crossref', openalex: 'OpenAlex', semantic: 'Semantic Scholar', local: 'your text only' };
+  const SRC = { crossref: 'Crossref', openalex: 'OpenAlex', semantic: 'Semantic Scholar', doiresolver: 'DOI resolver', openlibrary: 'Open Library', googlebooks: 'Google Books', local: 'your text only' };
+  const ATTENTION = { error: 0, notfound: 1, review: 2, verified: 3, fetching: 4, pending: 4 };
   const STATUS = { pending: ['Waiting', 'pending'], fetching: ['Checking…', 'fetching'], verified: ['Verified', 'verified'], review: ['Check this', 'review'], notfound: ['Not found', 'notfound'], error: ['Lookup failed', 'error'] };
 
   const keyOpts = () => ({ protectCaps: el.caps.checked });
@@ -155,7 +156,7 @@
   <header class="row-head">
     <span class="row-num">[${it.i + 1}]</span>
     <span class="chip chip-${cls}" title="${r ? `Match confidence ${Math.round(r.score * 100)}%` : ''}">${label}${pct}</span>${decision}
-    ${r && r.status !== 'notfound' && r.status !== 'error' ? `<span class="src">via ${SRC[r.source]}</span>` : ''}
+    ${r && r.status !== 'notfound' && r.status !== 'error' ? `<span class="src" title="Databases that returned this same record">${r.evidence && r.evidence.length > 1 ? 'confirmed by ' + r.evidence.map(e => SRC[e] || e).join(' + ') : 'via ' + (SRC[r.source] || r.source)}</span>` : ''}
     <span class="row-actions">
       <button class="icon-btn${it.decision === 'accept' ? ' on' : ''}" data-act="accept" type="button" title="Mark as correct" ${busy ? 'disabled' : ''}>✓ Accept</button>
       <button class="icon-btn${it.decision === 'reject' ? ' on' : ''}" data-act="reject" type="button" title="Leave out of the export" ${busy ? 'disabled' : ''}>✕ Reject</button>
@@ -175,6 +176,7 @@
   function renderAll() {
     const keys = currentKeys();
     const vis = state.items.filter(it => matchesFilter(it));
+    if (el.sort.value === 'attention') vis.sort((a, b) => (ATTENTION[statusOf(a)] - ATTENTION[statusOf(b)]) || a.i - b.i);
     el.rows.innerHTML = vis.map(it => rowHtml(it, keys[it.i])).join('') || '<p class="empty">Nothing in this filter.</p>';
     renderSummary();
   }
@@ -218,6 +220,7 @@
     applySettings(false);
     if (!Object.values(AC.config.providers).some(Boolean)) { showError('Select at least one database in Options.'); return; }
     const refs = AC.splitReferences(text);
+    if (AC.prepareInput(text).foundSection) toast('Found the References section in your text and used only that');
     if (!refs.length) { showError('No references detected. Put each reference on its own line (or separate them with a blank line).'); return; }
 
     state.items = refs.map((raw, i) => ({ i, parsed: AC.parseReference(raw, el.format.value), result: null, running: false, message: '', decision: 'auto', override: null, pick: 0 }));
@@ -296,6 +299,7 @@
     state.filter = state.filter === b.dataset.filter ? 'all' : b.dataset.filter;
     renderAll();
   });
+  el.sort.addEventListener('change', renderAll);
   el.acceptV.addEventListener('click', () => {
     let n = 0; state.items.forEach(it => { if (it.result?.status === 'verified' && it.decision === 'auto') { it.decision = 'accept'; n++; } });
     renderAll(); toast(`${n} verified reference${n === 1 ? '' : 's'} accepted`);
@@ -315,6 +319,28 @@
     });
     return parts.join('\n\n') + (parts.length ? '\n' : '');
   }
+  function buildReportCsv() {
+    const keys = currentKeys();
+    const cell = v => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"';
+    const head = ['#', 'status', 'confidence_%', 'your_decision', 'cite_key', 'your_reference', 'matched_title', 'matched_authors', 'year', 'venue', 'doi', 'isbn', 'confirmed_by', 'flags'];
+    const rows = state.items.map(it => {
+      const r = it.result, e = r ? r.entry : it.parsed;
+      return [it.i + 1, r ? r.status : 'pending', r && r.score ? Math.round(r.score * 100) : '', it.decision, keys[it.i], it.parsed.raw,
+        r && (r.status === 'verified' || r.status === 'review') ? e.title : '', r && (r.status === 'verified' || r.status === 'review') ? (e.authors || []).join('; ') : '',
+        e.year, e.journal || e.booktitle || e.publisher || '', e.doi || '', e.isbn || '', r && r.evidence ? r.evidence.map(x => SRC[x] || x).join(' + ') : '',
+        r ? r.flags.filter(f => f.level !== 'info' || /RETRACT|not registered/.test(f.text)).map(f => f.text).join(' | ') : ''].map(cell).join(',');
+    });
+    return String.fromCharCode(0xFEFF) + [head.map(cell).join(',')].concat(rows).join(String.fromCharCode(13, 10));
+  }
+  el.report.addEventListener('click', () => {
+    if (!state.items.length) { toast('Nothing to export yet'); return; }
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([buildReportCsv()], { type: 'text/csv;charset=utf-8' }));
+    a.download = 'reference-audit.csv';
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+    toast('reference-audit.csv downloaded');
+  });
   el.copy.addEventListener('click', async () => {
     const bib = buildBib(); if (!bib) { toast('Nothing to export yet'); return; }
     try { await navigator.clipboard.writeText(bib); } catch (_) { const ta = document.createElement('textarea'); ta.value = bib; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); ta.remove(); }
@@ -355,5 +381,5 @@
   loadSettings();
   el.input.value = LS.get('ac-draft', '') || '';
   updateCount();
-  window.AC.ui = { state, run, buildBib };
+  window.AC.ui = { state, run, buildBib, buildReportCsv };
 })();

@@ -8,7 +8,7 @@
 
   const config = AC.config = Object.assign({
     mailto: '',                                   // optional: puts requests in the "polite" pool of Crossref/OpenAlex
-    providers: { crossref: true, openalex: true, semantic: true },
+    providers: { crossref: true, openalex: true, semantic: true, books: true },
     concurrency: 3,
     strictness: 'normal'                          // lenient | normal | strict
   }, AC.config);
@@ -18,14 +18,14 @@
 
   // Circuit breaker: after 3 straight failures a host is skipped for a minute instead of slowing every reference.
   const health = {};
-  const HOST_OF = { crossref: 'api.crossref.org', openalex: 'api.openalex.org', semantic: 'api.semanticscholar.org' };
+  const HOST_OF = { crossref: 'api.crossref.org', openalex: 'api.openalex.org', semantic: 'api.semanticscholar.org', books: 'openlibrary.org' };
   const tripped = host => health[host] && health[host].fails >= 3 && Date.now() - health[host].at < 60000;
   function record(host, ok) { const h = health[host] || (health[host] = { fails: 0, at: 0 }); if (ok) h.fails = 0; else { h.fails++; h.at = Date.now(); } }
 
   // ── HTTP with timeout, retry/back-off, per-host spacing and a cache ──────
   const cache = new Map();
   const gates = {};
-  const SPACING = { 'api.semanticscholar.org': 1100, 'api.crossref.org': 120, 'api.openalex.org': 120 };
+  const SPACING = { 'api.semanticscholar.org': 1100, 'api.crossref.org': 120, 'api.openalex.org': 120, 'openlibrary.org': 150, 'www.googleapis.com': 150, 'doi.org': 100 };
   const sleep = (ms, signal) => new Promise((res, rej) => {
     const t = setTimeout(res, ms);
     signal?.addEventListener('abort', () => { clearTimeout(t); rej(new DOMException('Aborted', 'AbortError')); }, { once: true });
@@ -40,8 +40,9 @@
   }
 
   /** @returns {{ok:boolean, status:number, data:any, error:string}} — never throws except on abort */
-  async function http(url, signal, { timeout = 12000, retries = 2 } = {}) {
-    if (cache.has(url)) return cache.get(url);
+  async function http(url, signal, { timeout = 12000, retries = 2, accept = 'application/json' } = {}) {
+    const ckey = accept + url;
+    if (cache.has(ckey)) return cache.get(ckey);
     const host = new URL(url).host;
     let last = { ok: false, status: 0, data: null, error: 'network' };
     for (let attempt = 0; attempt <= retries; attempt++) {
@@ -51,10 +52,10 @@
       const onAbort = () => ctl.abort();
       signal?.addEventListener('abort', onAbort, { once: true });
       try {
-        const res = await fetch(url, { signal: ctl.signal, headers: { Accept: 'application/json' } });
+        const res = await fetch(url, { signal: ctl.signal, headers: { Accept: accept } });
         if (res.ok) {
           const out = { ok: true, status: res.status, data: await res.json(), error: '' };
-          cache.set(url, out); record(host, true);
+          cache.set(ckey, out); record(host, true);
           return out;
         }
         last = { ok: false, status: res.status, data: null, error: res.status === 404 ? 'not-found' : res.status === 429 ? 'rate-limited' : `http-${res.status}` };
@@ -75,7 +76,7 @@
   // ── Normalising provider records ──────────────────────────────────────────
   const clean = AC.bibtex.cleanText;
   const yr = v => (v == null ? '' : String(v));
-  const baseCand = (source) => ({ source, type: 'misc', authors: [], title: '', journal: '', booktitle: '', publisher: '', year: '', volume: '', number: '', pages: '', address: '', editor: '', note: '', doi: '', arxiv: '', url: '' });
+  const baseCand = (source) => ({ source, retracted: false, isbn: '', type: 'misc', authors: [], title: '', journal: '', booktitle: '', publisher: '', year: '', volume: '', number: '', pages: '', address: '', editor: '', note: '', doi: '', arxiv: '', url: '' });
 
   function crossrefToCand(item) {
     const TYPE = { 'journal-article': 'article', book: 'book', 'book-chapter': 'incollection', 'proceedings-article': 'inproceedings', monograph: 'book', 'edited-book': 'book', 'reference-book': 'book', report: 'techreport', dissertation: 'phdthesis', 'posted-content': 'misc' };
@@ -116,6 +117,7 @@
     c.volume = w.biblio?.volume || ''; c.number = w.biblio?.issue || '';
     c.pages = [w.biblio?.first_page, w.biblio?.last_page].filter(Boolean).join('-');
     c.doi = (w.doi || '').replace(/^https?:\/\/doi\.org\//i, '').toLowerCase();
+    c.retracted = !!w.is_retracted;
     return c;
   }
 
@@ -140,13 +142,45 @@
     return c;
   }
 
+  /** doi.org content negotiation (CSL JSON) -> same shape as Crossref. */
+  function cslToCand(d) {
+    const arr = v => (Array.isArray(v) ? v : v ? [v] : []);
+    const c = crossrefToCand({ type: d.type === 'article-journal' ? 'journal-article' : d.type === 'paper-conference' ? 'proceedings-article' : d.type === 'chapter' ? 'book-chapter' : d.type,
+      title: arr(d.title), author: d.author, editor: d.editor, issued: d.issued, 'container-title': arr(d['container-title']), volume: d.volume, issue: d.issue, page: d.page, publisher: d.publisher, DOI: d.DOI });
+    c.source = 'doiresolver';
+    return c;
+  }
+  function openlibraryToCand(d) {
+    const c = baseCand('openlibrary');
+    c.type = 'book';
+    c.title = clean(d.title || '');
+    c.authors = (d.author_name || []).map(splitName).filter(Boolean);
+    c.year = yr(d.first_publish_year);
+    c.publisher = clean((d.publisher || [])[0] || '');
+    c.isbn = (d.isbn || [])[0] || '';
+    c.url = d.key ? 'https://openlibrary.org' + d.key : '';
+    return c;
+  }
+  function googlebooksToCand(v) {
+    const i = v.volumeInfo || {}, c = baseCand('googlebooks');
+    c.type = 'book';
+    c.title = clean([i.title, i.subtitle].filter(Boolean).join(': '));
+    c.authors = (i.authors || []).map(splitName).filter(Boolean);
+    c.year = (i.publishedDate || '').slice(0, 4);
+    c.publisher = clean(i.publisher || '');
+    const id = (i.industryIdentifiers || []).find(x => x.type === 'ISBN_13') || (i.industryIdentifiers || [])[0];
+    c.isbn = id ? id.identifier : '';
+    c.url = i.infoLink || '';
+    return c;
+  }
+
   // ── Provider calls (each returns {cands, error}) ─────────────────────────
   const q = encodeURIComponent;
   const mail = () => config.mailto ? `&mailto=${q(config.mailto)}` : '';
   const SS_FIELDS = 'title,authors,year,venue,journal,externalIds,publicationTypes,publicationVenue';
   const CR_SELECT = 'DOI,title,subtitle,author,issued,published,container-title,volume,issue,page,publisher,type,editor,event';
 
-  const wrap = (res, map) => res.ok ? { cands: map(res.data), error: '' } : { cands: [], error: res.status === 404 ? '' : res.error };
+  const wrap = (res, map) => res.ok ? { cands: map(res.data), error: '', notFound: false } : { cands: [], error: res.status === 404 ? '' : res.error, notFound: res.status === 404 };
 
   const providers = {
     crossref: {
@@ -165,16 +199,39 @@
       byDOI: async (doi, s) => wrap(await http(`https://api.openalex.org/works/doi:${q(doi)}${mail().replace('&', '?')}`, s), d => d.id ? [openalexToCand(d)] : []),
       search: async (text, s, kind) => wrap(await http(`https://api.openalex.org/works?search=${q(kind === 'raw' ? text.raw.slice(0, 250) : text.title || text.raw.slice(0, 250))}${kind === 'year' && text.year ? `&filter=publication_year:${text.year}` : ''}&per-page=5${mail()}`, s), d => (d.results || []).map(openalexToCand))
     },
+    doiresolver: {
+      label: 'DOI resolver',
+      byDOI: async (doi, s) => wrap(await http(`https://doi.org/${doi.split('/').map(encodeURIComponent).join('/')}`, s, { accept: 'application/vnd.citationstyles.csl+json', retries: 1 }), d => d && d.title ? [cslToCand(d)] : [])
+    },
+    books: {
+      label: 'Open Library / Google Books',
+      byISBN: async (isbn, s) => {
+        const [ol, gb] = await Promise.all([
+          http(`https://openlibrary.org/search.json?isbn=${q(isbn)}&limit=3&fields=title,author_name,first_publish_year,publisher,isbn,key`, s, { retries: 1 }),
+          http(`https://www.googleapis.com/books/v1/volumes?q=isbn:${q(isbn)}&maxResults=3`, s, { retries: 1 })]);
+        const a = wrap(ol, d => (d.docs || []).map(openlibraryToCand)), b = wrap(gb, d => (d.items || []).map(googlebooksToCand));
+        return { cands: a.cands.concat(b.cands), error: a.error && b.error ? a.error : '' };
+      },
+      search: async (text, s) => {
+        const title = text.title || text.raw.slice(0, 120), au = text.author ? `&author=${q(text.author)}` : '';
+        const [ol, gb] = await Promise.all([
+          http(`https://openlibrary.org/search.json?title=${q(title)}${au}&limit=8&fields=title,author_name,first_publish_year,publisher,isbn,key`, s, { retries: 1 }),
+          http(`https://www.googleapis.com/books/v1/volumes?q=${q('intitle:' + title + (text.author ? ' inauthor:' + text.author : ''))}&maxResults=8`, s, { retries: 1 })]);
+        const a = wrap(ol, d => (d.docs || []).map(openlibraryToCand)), b = wrap(gb, d => (d.items || []).map(googlebooksToCand));
+        return { cands: a.cands.concat(b.cands), error: a.error && b.error ? a.error : '' };
+      }
+    },
     semantic: {
       label: 'Semantic Scholar',
-      byDOI: async (doi, s) => wrap(await http(`https://api.semanticscholar.org/graph/v1/paper/DOI:${q(doi)}?fields=${SS_FIELDS}`, s, { retries: 1 }), d => d.paperId ? [semanticToCand(d)] : []),
-      byArxiv: async (id, s) => wrap(await http(`https://api.semanticscholar.org/graph/v1/paper/ARXIV:${q(id)}?fields=${SS_FIELDS}`, s, { retries: 1 }), d => d.paperId ? [semanticToCand(d)] : []),
-      search: async (text, s, kind) => wrap(await http(`https://api.semanticscholar.org/graph/v1/paper/search?query=${q(kind === 'title' ? text.title : text.raw.slice(0, 250))}&limit=5&fields=${SS_FIELDS}`, s, { retries: 1 }), d => (d.data || []).map(semanticToCand))
+      byDOI: async (doi, s) => wrap(await http(`https://api.semanticscholar.org/graph/v1/paper/DOI:${q(doi)}?fields=${SS_FIELDS}`, s, { retries: 0, timeout: 7000 }), d => d.paperId ? [semanticToCand(d)] : []),
+      byArxiv: async (id, s) => wrap(await http(`https://api.semanticscholar.org/graph/v1/paper/ARXIV:${q(id)}?fields=${SS_FIELDS}`, s, { retries: 0, timeout: 7000 }), d => d.paperId ? [semanticToCand(d)] : []),
+      search: async (text, s, kind) => wrap(await http(`https://api.semanticscholar.org/graph/v1/paper/search?query=${q(kind === 'title' ? text.title : text.raw.slice(0, 250))}&limit=5&fields=${SS_FIELDS}`, s, { retries: 0, timeout: 7000 }), d => (d.data || []).map(semanticToCand))
     }
   };
 
   // ── Resolver ──────────────────────────────────────────────────────────────
-  const enabled = () => Object.keys(providers).filter(k => config.providers[k] && !tripped(HOST_OF[k]));
+  const enabled = () => Object.keys(providers).filter(k => k !== 'doiresolver' && config.providers[k] && !tripped(HOST_OF[k]));
+  const SCHOLAR = ['crossref', 'openalex', 'semantic'];
 
   /**
    * Resolves one parsed reference.
@@ -185,77 +242,91 @@
     const on = enabled();
     const errors = {};
     const note = (name, r) => { if (r.error) errors[name] = r.error; return r.cands; };
-    const pool = [];                                            // {cand, s:{score...}, via}
+    const pool = [];                                            // {id, cand, s, via, sources:Set}
     const add = (cands, via) => {
       for (const c of cands) {
         if (!c.title) continue;
+        if (via === 'isbn') c.byIdentifier = true;   // not for DOIs: a DOI pointing at a different paper must not look like a match
         const id = AC.normWord(c.title) + c.year + AC.normWord(AC.familyName(c.authors[0] || ''));
-        const sc = AC.match.scoreCandidate(parsed, c);
         const ex = pool.find(p => p.id === id);
-        if (ex) { mergeInto(ex.cand, c); ex.s = AC.match.scoreCandidate(parsed, ex.cand); continue; }
-        pool.push({ id, cand: c, s: sc, via });
+        if (ex) { ex.sources.add(c.source); mergeInto(ex.cand, c); ex.s = AC.match.scoreCandidate(parsed, ex.cand); continue; }
+        pool.push({ id, cand: c, s: AC.match.scoreCandidate(parsed, c), via, sources: new Set([c.source]) });
       }
     };
     const best = () => pool.slice().sort((a, b) => b.s.score - a.s.score)[0];
     const good = () => { const b = best(); return !!b && b.s.score >= thresholds().ok && b.s.year !== 0; };
     const flags = [];
-    const callAll = (fnName, arg, kind) => Promise.all(on.filter(n => providers[n][fnName]).map(async n => note(providers[n].label, await providers[n][fnName](arg, signal, kind))));
-    const queryText = { raw: parsed.raw, title: parsed.title, year: parsed.year, author: parsed.authors[0] && parsed.authors[0] !== 'others' ? AC.familyName(parsed.authors[0]) : '' };
+    const fast = on.filter(n => n !== 'semantic' && n !== 'books');
+    const hyps = (parsed.titleCandidates && parsed.titleCandidates.length ? parsed.titleCandidates : [parsed.title]).filter(Boolean);
+    const q1 = { raw: parsed.raw, title: hyps[0] || '', year: parsed.year, author: parsed.authors[0] && parsed.authors[0] !== 'others' ? AC.familyName(parsed.authors[0]) : '' };
+    const searchFast = async (query, kind) => (await Promise.all(fast.map(async n => note(providers[n].label, await providers[n].search(query, signal, kind))))).forEach(c => add(c, kind));
+    const searchBooks = async () => { if (on.includes('books')) add(note('Open Library / Google Books', await providers.books.search(q1, signal)), 'books'); };
+    const isBook = parsed.kind === 'book';
 
-    let doiRecords = [];
+    // 1 — strongest identifiers first
+    let doiRecords = [], doiMissing = false;
     if (parsed.doi) {
-      onStatus('DOI found — looking it up…');
-      doiRecords = (await callAll('byDOI', parsed.doi)).flat();
+      onStatus('DOI found — checking Crossref, OpenAlex, Semantic Scholar…');
+      const results = await Promise.all(on.filter(n => providers[n].byDOI && n !== 'books').map(async n => [n, await providers[n].byDOI(parsed.doi, signal)]));
+      results.forEach(([n, r]) => note(providers[n].label, r));
+      doiRecords = results.flatMap(([, r]) => r.cands);
+      const crossrefMiss = results.some(([n, r]) => n === 'crossref' && r.notFound);
+      if (!doiRecords.length && crossrefMiss) {                // Crossref has no such DOI: ask the DOI registry itself (covers DataCite etc.)
+        onStatus('Crossref does not know this DOI — asking doi.org…');
+        const r = await providers.doiresolver.byDOI(parsed.doi, signal);
+        if (r.cands.length) doiRecords = r.cands; else if (r.notFound) doiMissing = true;
+      }
       add(doiRecords, 'doi');
     }
-    if (parsed.arxiv && !pool.length && providers.semantic && on.includes('semantic')) {
+    if (parsed.isbn && on.includes('books')) {
+      onStatus('ISBN found — checking book catalogues…');
+      add(note('Open Library / Google Books', await providers.books.byISBN(parsed.isbn, signal)), 'isbn');
+    }
+    if (parsed.arxiv && !pool.length && on.includes('semantic')) {
       onStatus('arXiv id found — looking it up…');
       add(note('Semantic Scholar', await providers.semantic.byArxiv(parsed.arxiv, signal)), 'arxiv');
     }
-    if (!good()) {
-      onStatus('Searching Crossref and OpenAlex…');
-      const fast = on.filter(n => n !== 'semantic');
-      const res = await Promise.all(fast.map(async n => note(providers[n].label, await providers[n].search(queryText, signal, 'raw'))));
-      res.forEach(c => add(c, 'raw'));
-    }
-    if (!good() && parsed.title.length > 8) {
+    // 2 — books and reports go to the book catalogues before the article indexes
+    if (!good() && isBook) { onStatus('Searching book catalogues…'); await searchBooks(); }
+    // 3 — article indexes: raw text, then each title hypothesis, then year-filtered
+    if (!good()) { onStatus('Searching Crossref and OpenAlex…'); await searchFast(q1, 'raw'); }
+    for (const h of hyps.slice(0, 2)) {
+      if (good() || h.length <= 8) continue;
       onStatus('Searching by title and first author…');
-      const fast = on.filter(n => n !== 'semantic');
-      const res = await Promise.all(fast.map(async n => note(providers[n].label, await providers[n].search(queryText, signal, 'title'))));
-      res.forEach(c => add(c, 'title'));
+      await searchFast(Object.assign({}, q1, { title: h }), 'title');
     }
-    if (!good() && parsed.year && parsed.title.length > 8) {
-      onStatus(`Searching ${parsed.year} publications…`);
-      const fast = on.filter(n => n !== 'semantic');
-      const res = await Promise.all(fast.map(async n => note(providers[n].label, await providers[n].search(queryText, signal, 'year'))));
-      res.forEach(c => add(c, 'year'));
-    }
+    if (!good() && parsed.year && hyps[0]) { onStatus(`Searching ${parsed.year} publications…`); await searchFast(q1, 'year'); }
     if (!good() && on.includes('semantic')) {
       onStatus('Trying Semantic Scholar…');
-      add(note('Semantic Scholar', await providers.semantic.search(queryText, signal, parsed.title.length > 8 ? 'title' : 'raw')), 'semantic');
+      add(note('Semantic Scholar', await providers.semantic.search(q1, signal, q1.title.length > 8 ? 'title' : 'raw')), 'semantic');
     }
+    if (!good() && !isBook && (parsed.kind === 'unknown' || !pool.length)) { onStatus('Trying book catalogues…'); await searchBooks(); }
 
     const rank = p => p.s.score + (p.cand.type !== 'misc' ? 0.01 : 0) + (p.cand.pages || p.cand.volume ? 0.005 : 0);
     const ranked = pool.slice().sort((a, b) => rank(b) - rank(a));
     const top = ranked[0];
     const th = thresholds();
+    const label = n => (providers[n] ? providers[n].label : n);
 
     // A reference that is nothing but a DOI has nothing to compare against: trust the DOI.
-    const bareDoi = parsed.doi && parsed.raw.replace(/https?:\/\/\S+|doi:?|10\.\d{4,9}\/\S+/gi, '').replace(/[\s\W]/g, '').length < 8;
+    const bareDoi = parsed.doi && parsed.raw.replace(/https?:\/\/\S+|doi:?|10\.\d{4,9}\/\S+/gi, '').replace(/[\s\W]/g, '').length < 8;
     if (bareDoi && doiRecords.length) {
       const d = doiRecords[0];
       const entry = await enrich(d, ranked, parsed, signal, note, on);
       entry.raw = parsed.raw;
-      return { entry, status: 'verified', score: 1, source: d.source, candidates: [{ cand: d, score: 1 }], via: 'doi', errors,
-        flags: [{ level: 'info', text: 'Resolved from the DOI alone — there was no other text to compare, so check the title yourself.' }] };
+      const fl = [{ level: 'info', text: 'Resolved from the DOI alone — there was no other text to compare, so check the title yourself.' }];
+      if (d.retracted) fl.unshift({ level: 'bad', text: 'This work is marked as RETRACTED in OpenAlex.' });
+      return { entry, status: d.retracted ? 'review' : 'verified', score: 1, source: d.source, candidates: [{ cand: d, score: 1 }], via: 'doi', errors, flags: fl,
+        evidence: ranked[0] ? [...ranked[0].sources] : [d.source] };
     }
-    // DOI sanity: it resolved, but to something that is not what was pasted.
+    // DOI sanity: it resolved, but to something that is not what was pasted — or does not exist.
     if (parsed.doi) {
-      if (!doiRecords.length) {
-        if (Object.keys(errors).length < on.length) flags.push({ level: 'warn', text: `DOI ${parsed.doi} was not found in ${on.map(n => providers[n].label).join(' / ')}` });
+      if (doiMissing) flags.push({ level: 'bad', text: `DOI ${parsed.doi} is not registered: neither Crossref nor the DOI resolver (doi.org) knows it. A DOI that does not exist is a strong sign of a mistyped or invented reference.` });
+      else if (!doiRecords.length) {
+        if (Object.keys(errors).length < on.length) flags.push({ level: 'warn', text: `DOI ${parsed.doi} was not found in ${on.filter(n => n !== 'books').map(label).join(' / ')}` });
       } else {
         const d = doiRecords[0], ds = AC.match.scoreCandidate(parsed, d);
-        if (ds.score < th.review) flags.push({ level: 'bad', text: `The DOI resolves to a different paper: "${d.title}" (${d.year}) — it does not match this reference` });
+        if (ds.score < th.review) flags.push({ level: 'bad', text: `The DOI resolves to a different work: "${d.title}" (${d.year}) — it does not match this reference` });
       }
     }
 
@@ -268,21 +339,25 @@
       entry.raw = parsed.raw;
       score = top.s.score; source = top.cand.source;
       const s = top.s;
+      if (top.cand.retracted) flags.push({ level: 'bad', text: 'This work is marked as RETRACTED in OpenAlex — do not cite it without checking the retraction notice.' });
       if (s.title < 0.6) flags.push({ level: 'warn', text: `Title only ${Math.round(s.title * 100)}% similar to your text` });
+      else if (!s.exact && s.contained) flags.push({ level: 'info', text: 'Title matches apart from a subtitle or wording variant between your text and the record.' });
       if (s.authors !== null && s.authors < 0.5) flags.push({ level: 'warn', text: 'Authors in the database record are mostly absent from your reference' });
-      if (s.year === 0) flags.push({ level: 'warn', text: `Year differs: your text says ${parsed.year}, record says ${top.cand.year}` });
-      if (status === 'verified' && (flags.some(f => f.level === 'bad') || s.year === 0 || s.title < 0.6 || s.authors === 0)) status = 'review';
+      if (s.year === 0 || (top.cand.type === 'book' && s.year !== null && s.year < 1)) flags.push({ level: 'warn', text: `Year differs: your text says ${parsed.year}, record says ${top.cand.year}${top.cand.type === 'book' ? ' (books often carry the first-edition year)' : ''}` });
+      const yearBad = s.year === 0 && top.cand.type !== 'book';
+      if (status === 'verified' && (flags.some(f => f.level === 'bad') || yearBad || s.title < 0.6 || s.authors === 0)) status = 'review';
     } else if (top) score = top.s.score;
     if (status === 'notfound' || status === 'error') {
       entry = Object.assign({}, parsed);
-      if (status === 'notfound') flags.push({ level: 'warn', text: 'No database record matched this reference. It may be a book, report, web page or an unindexed source — or it may not exist.' });
+      if (status === 'notfound') flags.push({ level: 'warn', text: 'No database record matched this reference. Unverified does not mean fake — it may be a report, web page, thesis or unindexed source. Check it manually.' });
       if (status === 'error') flags.push({ level: 'warn', text: 'Could not reach the lookup services (' + Object.entries(errors).map(([k, v]) => `${k}: ${v}`).join(', ') + '). Check your connection and retry.' });
     }
     for (const t of AC.match.redFlags(entry, parsed)) flags.push({ level: 'info', text: t });
     for (const [k, v] of Object.entries(errors)) if (status !== 'error') flags.push({ level: 'info', text: `${k} did not respond (${v === 'network' ? 'network error or rate limit' : v}) — results may be incomplete` });
 
     const candidates = ranked.slice(0, 4).map(p => ({ cand: p.cand, score: p.s.score }));
-    return { entry, status, score, source, candidates, flags, errors, via: top?.via || '' };
+    const evidence = status === 'verified' || status === 'review' ? [...top.sources] : [];
+    return { entry, status, score, source, candidates, flags, errors, via: top?.via || '', evidence };
   }
 
   function mergeInto(a, b) {
@@ -331,6 +406,6 @@
     return results;
   }
 
-  AC.lookup = { providers, resolveReference, resolveAll, thresholds, crossrefToCand, openalexToCand, semanticToCand, clearCache: () => cache.clear() };
+  AC.lookup = { providers, cslToCand, openlibraryToCand, googlebooksToCand, resolveReference, resolveAll, thresholds, crossrefToCand, openalexToCand, semanticToCand, clearCache: () => cache.clear() };
   if (typeof module !== 'undefined' && module.exports) module.exports = AC;
 })(typeof globalThis !== 'undefined' ? globalThis : this);

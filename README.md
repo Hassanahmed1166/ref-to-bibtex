@@ -32,6 +32,18 @@ Runs entirely in the browser (static files, no backend). The only network traffi
 
 Flags such as "DOI resolves to a different paper" or "predatory-journal pattern" are **hints for a human**, not proof of fabrication.
 
+## Ideas adopted from CiteVerify
+
+[CiteVerify](https://github.com/cuihuash/citeverify) is a Python tool that audits the references in PDF/Word papers. Its logic was ported to the browser:
+
+- **Whole-manuscript paste** – if you paste a full paper, only the *References* section is used; page numbers, running headers, line-break hyphens and DOIs split across lines are cleaned up.
+- **Several title hypotheses per reference** – quoted, after-year, before-"In:", after-author… every hypothesis is searched/scored and the best wins.
+- **Subtitle-tolerant matching** – a record whose title differs only by a subtitle is a "strong" match, not a conflict.
+- **Books and reports** – ISBN extraction plus Open Library and Google Books lookups, with first-edition-year leniency.
+- **DOI forensics** – DOI checked in Crossref, OpenAlex and Semantic Scholar, then the DOI registry (doi.org); a DOI nobody knows is flagged as *not registered*, and a DOI that resolves to a different work is flagged as a conflict.
+- **Retraction flag** from OpenAlex, and **"confirmed by"** evidence showing which databases returned the same record.
+- **Needs-attention-first ordering** and an **audit report (.csv)** with status, evidence and flags for every reference.
+
 ## Features
 
 - Side-by-side reference ↔ BibTeX review with word-level highlighting, per-row accept / reject / edit / retry
