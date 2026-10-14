@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Privacy — AuthentiCite</title>
+<meta name="description" content="AuthentiCite does not store your references, documents or email. Here is exactly what stays in your browser and what is sent to scholarly databases."/>
+<link rel="icon" href="favicon.png"/>
+<link rel="stylesheet" href="style.css"/>
+<link rel="stylesheet" href="css/polish.css"/>
+<script src="js/theme.js"></script>
+<script src="js/fx.js" defer></script>
+<style>
+  .privacy{width:100%;max-width:820px;padding:0 20px}
+  .promise{display:grid;grid-template-columns:repeat(2,1fr);gap:14px;margin:6px 0 26px}
+  @media(max-width:600px){.promise{grid-template-columns:1fr}}
+  .promise div{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:16px 18px;box-shadow:var(--card-shadow)}
+  .promise strong{display:block;font-size:.95rem;margin-bottom:4px;color:var(--text)}
+  .promise span{font-size:.8rem;color:var(--text-muted);line-height:1.55}
+  .promise .ok{color:var(--action);font-weight:700;margin-right:6px}
+  .privacy h2{font-family:var(--font-display);font-size:1.35rem;font-weight:400;margin:0 0 10px}
+  .privacy p,.privacy li{color:var(--text-muted);font-size:.9rem;line-height:1.75}
+  .privacy ul{padding-left:20px;margin:8px 0 4px}
+  .privacy li{margin-bottom:5px}
+  .privacy strong{color:var(--text)}
+  .privacy table{width:100%;border-collapse:collapse;margin:10px 0 4px;font-size:.82rem}
+  .privacy th,.privacy td{text-align:left;padding:9px 10px;border-bottom:1px solid var(--border);vertical-align:top;color:var(--text-muted)}
+  .privacy th{font-size:.7rem;letter-spacing:.1em;text-transform:uppercase;color:var(--text-dim)}
+  .privacy td:first-child{color:var(--text);font-weight:600;white-space:nowrap}
+  .privacy a{color:var(--action)}
+  .table-wrap{overflow-x:auto}
+  .updated{font-size:.75rem;color:var(--text-dim)}
+  .danger-zone{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-top:12px}
+  #clearMsg{font-size:.82rem;color:var(--action)}
+</style>
+</head>
+<body>
+
+<nav class="topnav" aria-label="Main">
+  <a class="nav-logo" href="index.html">
+    <img src="logo.png" alt="" width="40" height="28"/>
+    <div>
+      <div class="nav-logo-text">AuthentiCite</div>
+      <div class="nav-logo-sub">Verify · Authenticate · Convert</div>
+    </div>
+  </a>
+  <div class="nav-links">
+    <a class="nav-link" href="index.html">Converter</a>
+    <a class="nav-link" href="suggestions.html">Suggestions</a>
+    <a class="nav-link" href="about.html">About</a>
+    <a class="nav-link active" href="privacy.html" aria-current="page">Privacy</a>
+    <button class="nav-link theme-btn" id="themeBtn" type="button">☀ Light</button>
+  </div>
+</nav>
+
+<header class="hero" style="padding-bottom:8px">
+  <div class="hero-eyebrow">Your data, your browser</div>
+  <h1 class="hero-title">Privacy <span class="arrow">&amp;</span> data</h1>
+  <p class="hero-sub">AuthentiCite is a static website. There is no AuthentiCite server, no account and no database, so there is nothing for us to store — your references stay with you.</p>
+</header>
+
+<main class="privacy">
+
+  <div class="promise">
+    <div><strong><span class="ok">✓</span>We do not store your references</strong><span>Pasted text and extracted references are processed in your browser tab and are gone when you close it.</span></div>
+    <div><strong><span class="ok">✓</span>We do not store your documents</strong><span>PDF and Word files are read locally on your device. They are never uploaded to us or anyone else.</span></div>
+    <div><strong><span class="ok">✓</span>We do not collect your email or identity</strong><span>No sign-up, no login. The email field in Options is optional and never reaches us.</span></div>
+    <div><strong><span class="ok">✓</span>No tracking</strong><span>No analytics, advertising scripts or tracking cookies.</span></div>
+  </div>
+
+  <div class="card" style="margin-bottom:20px">
+    <h2>What happens when you convert &amp; verify</h2>
+    <p>To check that a reference exists, your browser sends <strong>small pieces of that reference</strong> — typically the title, first author, year, and a DOI, arXiv id or ISBN if present — <strong>directly from your device</strong> to public scholarly databases. The request does not pass through any AuthentiCite server.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Service</th><th>Used for</th><th>What it receives</th></tr></thead>
+        <tbody>
+          <tr><td>Crossref</td><td>DOI and article lookup</td><td>Reference text / title / DOI</td></tr>
+          <tr><td>OpenAlex</td><td>Article lookup, retraction status</td><td>Title / DOI</td></tr>
+          <tr><td>Semantic Scholar</td><td>Article and arXiv lookup</td><td>Title / DOI / arXiv id</td></tr>
+          <tr><td>Open Library, Google Books</td><td>Book lookup</td><td>Title, author, ISBN</td></tr>
+          <tr><td>doi.org</td><td>Checking that a DOI exists</td><td>The DOI</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>These services see your IP address like any website does and have their own privacy policies. You can switch any of them off in <em>Options</em> on the Converter page. <strong>Nothing is sent to a large language model or any AI service.</strong></p>
+  </div>
+
+  <div class="card" style="margin-bottom:20px">
+    <h2>Documents you upload</h2>
+    <p>PDF, DOCX and text files are opened and read <strong>inside your browser</strong>. Only the text of the references (as above) is ever used for lookups. To read PDF and Word files the page downloads two open-source helper libraries (PDF.js and Mammoth) from <strong>cdnjs.cloudflare.com</strong> the first time you open such a file — that is a download <em>to</em> you; your file is not sent there.</p>
+  </div>
+
+  <div class="card" style="margin-bottom:20px">
+    <h2>Email address (optional)</h2>
+    <p>The <em>Your email</em> box in Options is optional. If you fill it in, it is stored only in your own browser and is added to Crossref and OpenAlex requests as a courtesy <code>mailto</code> parameter, which those services use to contact heavy users and give them more reliable access. AuthentiCite does not receive or keep it. Leave it empty if you prefer.</p>
+  </div>
+
+  <div class="card" style="margin-bottom:20px">
+    <h2>What is saved in your browser</h2>
+    <p>A few small items are kept in your browser's local storage <strong>on your device only</strong>, to make the tool convenient:</p>
+    <ul>
+      <li><strong>Theme</strong> — light or dark.</li>
+      <li><strong>Settings</strong> — your Options choices (and the optional email, if you typed one).</li>
+      <li><strong>Draft</strong> — the text in the input box, so a refresh doesn't lose it.</li>
+      <li><strong>Usage counters</strong> — how many references you have checked, shown on the About page.</li>
+    </ul>
+    <p>No cookies are set. You can erase all of this at any time:</p>
+    <div class="danger-zone">
+      <button class="btn btn-ghost" id="clearBtn" type="button">Clear saved data in this browser</button>
+      <span id="clearMsg" role="status"></span>
+    </div>
+  </div>
+
+  <div class="card" style="margin-bottom:20px">
+    <h2>Other things worth knowing</h2>
+    <ul>
+      <li><strong>Hosting.</strong> The site is served by GitHub Pages. GitHub, like any web host, may keep ordinary server logs (such as IP address) for the pages and files you load; AuthentiCite has no access to them.</li>
+      <li><strong>Fonts.</strong> The pages load fonts from Google Fonts, which means your browser contacts Google to fetch them.</li>
+      <li><strong>About page.</strong> It asks GitHub's public API for the repository's star and fork counts. No personal data is sent.</li>
+      <li><strong>Suggestions page.</strong> It does not send anything by itself. When you press the button it opens a pre-filled GitHub issue in a new tab; nothing is posted until <em>you</em> submit it there, and GitHub issues are public — don't include private details.</li>
+      <li><strong>Exports.</strong> The <code>.bib</code> and <code>.csv</code> files are created on your device and saved by your browser. We never see them.</li>
+    </ul>
+  </div>
+
+  <div class="card" style="margin-bottom:20px">
+    <h2>Questions or concerns</h2>
+    <p>The whole site is open source — you can read exactly what the code does at <a href="https://github.com/Hassanahmed1166/ref-to-bibtex" target="_blank" rel="noopener">github.com/Hassanahmed1166/ref-to-bibtex</a>. If something here is unclear or you spot a privacy problem, please <a href="suggestions.html">tell us</a>.</p>
+    <p class="updated">Last updated: October 2026</p>
+  </div>
+</main>
+
+<footer class="site-footer">
+  <div class="footer-brand"><strong>AuthentiCite</strong> — Verify, Authenticate, Convert</div>
+  <div class="footer-links">
+    <a href="index.html">Converter</a>
+    <a href="suggestions.html">Suggestions</a>
+    <a href="about.html">About</a>
+    <a href="privacy.html">Privacy</a>
+  </div>
+</footer>
+
+<script>
+document.getElementById('clearBtn').addEventListener('click', function () {
+  var keys = ['ac-settings', 'ac-draft', 'ac-stats'], n = 0;
+  try { keys.forEach(function (k) { if (localStorage.getItem(k) !== null) { localStorage.removeItem(k); n++; } }); } catch (_) {}
+  document.getElementById('clearMsg').textContent = n ? 'Done — your saved settings, draft and counters were erased (theme kept).' : 'Nothing was saved in this browser.';
+});
+</script>
+</body>
+</html>
