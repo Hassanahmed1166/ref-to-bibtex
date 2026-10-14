@@ -92,7 +92,9 @@
       out += esc(text.slice(last, m.index));
       const n = nw(m[0]);
       const interesting = n.length > 0 && !TRIVIAL.has(n) && (n.length > 1 || /\d/.test(n));
-      out += interesting && (cls === 'hit' ? otherSet.has(n) : !otherSet.has(n)) ? `<mark class="${cls}">${esc(m[0])}</mark>` : esc(m[0]);
+      const flagged = interesting && (cls === 'hit' ? otherSet.has(n) : !otherSet.has(n));
+      // on the BibTeX side unflagged words are wrapped too, so hovering a green word on the left can light up its twin on the right
+      out += flagged ? `<mark class="${cls}" data-w="${n}">${esc(m[0])}</mark>` : interesting && cls === 'miss' ? `<span class="w" data-w="${n}">${esc(m[0])}</span>` : esc(m[0]);
       last = m.index + m[0].length;
     }
     return out + esc(text.slice(last));
@@ -134,7 +136,7 @@
   // ── Rendering ─────────────────────────────────────────────────────────────
   function statusOf(it) { return it.running ? 'fetching' : it.result ? it.result.status : 'pending'; }
 
-  function rowHtml(it, key) {
+  function rowHtml(it, key, animate) {
     const st = statusOf(it);
     const [label, cls] = STATUS[st];
     const r = it.result;
@@ -148,11 +150,11 @@
     const left = it.editingRaw
       ? `<textarea class="edit-area" id="edit-raw-${it.i}" rows="4">${esc(it.parsed.raw)}</textarea><div class="edit-btns"><button class="btn btn-primary btn-sm" data-act="rerun" type="button">Re-check this text</button><button class="btn btn-ghost btn-sm" data-act="cancel-raw" type="button">Cancel</button></div>`
       : `<div class="ref-text">${renderRaw(it)}</div>`;
-    const right = busy ? `<div class="bib-wait"><span class="spin">◌</span> ${esc(it.message || 'Waiting…')}</div>`
+    const right = busy ? `<div class="bib-wait"><div class="msg"><span class="spin">◌</span><span class="msg-t">${esc(it.message || 'Waiting…')}</span></div><div class="sk"></div><div class="sk"></div><div class="sk"></div></div>`
       : it.editingBib ? `<textarea class="edit-area mono" id="edit-bib-${it.i}" rows="9" spellcheck="false">${esc(bibFor(it, key))}</textarea><div class="edit-btns"><button class="btn btn-primary btn-sm" data-act="save-bib" type="button">Save</button><button class="btn btn-ghost btn-sm" data-act="cancel-bib" type="button">Cancel</button>${it.override != null ? '<button class="btn btn-ghost btn-sm" data-act="reset-bib" type="button">Reset to generated</button>' : ''}</div>`
       : `<pre class="bib">${renderBib(it, key)}</pre>`;
 
-    return `<article class="row row-${cls}${it.decision === 'reject' ? ' is-rejected' : ''}" data-i="${it.i}" id="row-${it.i}">
+    return `<article class="row row-${cls}${it.decision === 'reject' ? ' is-rejected' : ''}${animate ? '' : ' static'}${it.justDone ? ' just-done' : ''}" data-i="${it.i}" id="row-${it.i}" style="--n:${Math.min(it.i, 14)}">
   <header class="row-head">
     <span class="row-num">[${it.i + 1}]</span>
     <span class="chip chip-${cls}" title="${r ? `Match confidence ${Math.round(r.score * 100)}%` : ''}">${label}${pct}</span>${decision}
@@ -173,11 +175,11 @@
 </article>`;
   }
 
-  function renderAll() {
+  function renderAll(animate) {
     const keys = currentKeys();
     const vis = state.items.filter(it => matchesFilter(it));
     if (el.sort.value === 'attention') vis.sort((a, b) => (ATTENTION[statusOf(a)] - ATTENTION[statusOf(b)]) || a.i - b.i);
-    el.rows.innerHTML = vis.map(it => rowHtml(it, keys[it.i])).join('') || '<p class="empty">Nothing in this filter.</p>';
+    el.rows.innerHTML = vis.map(it => rowHtml(it, keys[it.i], animate === true)).join('') || '<p class="empty">Nothing in this filter.</p>';
     renderSummary();
   }
   function renderRow(i) {
@@ -185,7 +187,8 @@
     const it = state.items[i];
     if (!node) return;
     if (!matchesFilter(it)) { node.remove(); renderSummary(); return; }
-    node.outerHTML = rowHtml(it, currentKeys()[i]);
+    node.outerHTML = rowHtml(it, currentKeys()[i], false);
+    it.justDone = false;
     renderSummary();
   }
   const matchesFilter = it => state.filter === 'all' || statusOf(it) === state.filter || (state.filter === 'rejected' && it.decision === 'reject');
@@ -194,6 +197,8 @@
     const c = { all: state.items.length, verified: 0, review: 0, notfound: 0, error: 0, rejected: 0 };
     state.items.forEach(it => { const s = statusOf(it); if (c[s] !== undefined) c[s]++; if (it.decision === 'reject') c.rejected++; });
     const chip = (key, label) => c[key] || key === 'all' ? `<button type="button" class="filter${state.filter === key ? ' on' : ''}" data-filter="${key}" aria-pressed="${state.filter === key}">${label} <b>${c[key]}</b></button>` : '';
+    const tot = Math.max(1, c.verified + c.review + c.notfound + c.error);
+    $('ratio').innerHTML = ['verified', 'review', 'notfound', 'error'].map(k => `<i class="r-${k}" style="flex-grow:${c[k] / tot}" title="${c[k]} ${k}"></i>`).join('');
     el.summary.innerHTML = chip('all', 'All') + chip('verified', '✔ Verified') + chip('review', '⚠ Check this') + chip('notfound', '✕ Not found') + chip('error', 'Failed') + chip('rejected', 'Rejected');
   }
 
@@ -201,6 +206,7 @@
   function setRunning(on) {
     state.running = on;
     el.convert.disabled = on;
+    el.convert.classList.toggle('busy', on);
     el.convert.querySelector('span').textContent = on ? 'Working…' : 'Convert & Verify';
     el.runbar.hidden = !on;
     if (!on) el.cancel.disabled = false;
@@ -226,7 +232,7 @@
     state.items = refs.map((raw, i) => ({ i, parsed: AC.parseReference(raw, el.format.value), result: null, running: false, message: '', decision: 'auto', override: null, pick: 0 }));
     state.filter = 'all';
     el.results.classList.remove('hidden');
-    renderAll();
+    renderAll(true);
     el.results.scrollIntoView({ behavior: 'smooth', block: 'start' });
     await resolveItems(state.items.map(it => it.i));
     const st = LS.get('ac-stats', {});                                  // local-only usage counters (shown on the About page)
@@ -241,7 +247,7 @@
     try {
       await AC.lookup.resolveAll(indices.map(i => state.items[i].parsed), state.ctl.signal, {
         onUpdate: (k, s, msg) => { const it = state.items[indices[k]]; it.running = true; it.message = msg; patchWait(it); },
-        onDone: (k, res) => { const it = state.items[indices[k]]; it.running = false; it.result = res; it.pick = 0; renderRow(it.i); },
+        onDone: (k, res) => { const it = state.items[indices[k]]; it.running = false; it.result = res; it.pick = 0; it.justDone = true; renderRow(it.i); },
         onProgress: setProgress
       });
     } finally {
@@ -250,11 +256,13 @@
       renderAll();
       const aborted = state.ctl.signal.aborted;
       toast(aborted ? 'Cancelled' : `Done in ${((performance.now() - t0) / 1000).toFixed(1)} s`);
+      if (!aborted && indices.length > 1 && indices.every(i => state.items[i].result && state.items[i].result.status === 'verified') && window.confettiBurst) window.confettiBurst();
     }
   }
   function patchWait(it) {
     const w = document.querySelector(`#row-${it.i} .bib-wait`);
-    if (w) w.lastChild.textContent = ' ' + it.message; else renderRow(it.i);
+    const t = w && w.querySelector('.msg-t');
+    if (t) t.textContent = it.message; else renderRow(it.i);
   }
 
   // ── Row actions (event delegation) ────────────────────────────────────────
@@ -294,6 +302,38 @@
     }
     renderRow(it.i);
   });
+  // hovering a highlighted word lights up the same word on the other side of the pair
+  function linkWords(ev, on) {
+    const m = ev.target.closest && ev.target.closest('[data-w]');
+    if (!m) return;
+    m.closest('.row').querySelectorAll(`[data-w="${m.dataset.w}"]`).forEach(x => x.classList.toggle('link', on));
+  }
+  el.rows.addEventListener('mouseover', ev => linkWords(ev, true));
+  el.rows.addEventListener('mouseout', ev => linkWords(ev, false));
+
+  // keyboard review: J/K move, A accept, R reject, E edit BibTeX
+  let kbIndex = -1;
+  function focusRow(delta) {
+    const rows = [...el.rows.querySelectorAll('.row')];
+    if (!rows.length) return;
+    kbIndex = Math.max(0, Math.min(rows.length - 1, kbIndex + delta));
+    rows.forEach(r => r.classList.remove('kb'));
+    rows[kbIndex].classList.add('kb');
+    rows[kbIndex].scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
+  document.addEventListener('keydown', ev => {
+    if (ev.ctrlKey || ev.metaKey || ev.altKey || /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName) || el.results.classList.contains('hidden')) return;
+    const k = ev.key.toLowerCase();
+    if (k === 'j') focusRow(1);
+    else if (k === 'k') focusRow(-1);
+    else if (k === 'escape') { el.rows.querySelectorAll('.kb').forEach(r => r.classList.remove('kb')); kbIndex = -1; }
+    else if ('are'.includes(k) && k.length === 1) {
+      const row = el.rows.querySelector('.row.kb');
+      const b = row && row.querySelector(`[data-act="${{ a: 'accept', r: 'reject', e: 'edit-bib' }[k]}"]`);
+      if (b && !b.disabled) { ev.preventDefault(); const i = +row.dataset.i; b.click(); const nr = document.getElementById('row-' + i); if (nr) nr.classList.add('kb'); }
+    }
+  });
+
   el.summary.addEventListener('click', ev => {
     const b = ev.target.closest('[data-filter]'); if (!b) return;
     state.filter = state.filter === b.dataset.filter ? 'all' : b.dataset.filter;
