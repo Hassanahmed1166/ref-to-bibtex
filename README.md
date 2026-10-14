@@ -75,6 +75,8 @@ No build step: `python -m http.server` in the repo root and open <http://localho
 
 ## Privacy
 
+A plain-language page is included: [privacy.html](privacy.html) (what is and isn't stored, which services see what, and a button to erase local data).
+
 Reference text is sent only to the three APIs above. Settings, your draft and usage counters stay in `localStorage`.
 The optional e-mail in *Options* is sent only to Crossref/OpenAlex as a `mailto` parameter.
 

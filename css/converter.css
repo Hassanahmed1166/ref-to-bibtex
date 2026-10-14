@@ -123,3 +123,6 @@ pre.bib{font-family:var(--font-mono);font-size:.76rem;line-height:1.7;white-spac
 
 .summary-row{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:12px}
 .summary-row .summary{margin-bottom:0}
+
+.privacy-note{margin-top:14px;font-size:.75rem;color:var(--text-muted)}
+.privacy-note a{color:var(--action)}
