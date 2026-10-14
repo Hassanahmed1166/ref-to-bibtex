@@ -37,8 +37,46 @@
   }
 
   // ── Splitting a pasted block into references ──────────────────────────────
+  const REF_HEADING = /^\s*(?:(?:\d{1,2}|[IVXL]+)[.)]\s*)?(?:references and bibliography|literature cited|references?|bibliography|works cited)\s*:?\s*$/i;
+  const NEXT_SECTION = /^\s*(?:appendix|appendices|acknowledg(?:e)?ments?|supplementary (?:material|file)s?|author contributions?|conflicts? of interest|funding)\b/i;
+
+  /** If the text is a whole paper, return only the bibliography; otherwise return it unchanged. */
+  function extractReferenceSection(text) {
+    const lines = text.split('\n');
+    const idx = lines.findIndex(l => REF_HEADING.test(l));
+    if (idx < 0 || lines.length < 15) return { text, found: false };
+    let end = lines.length;
+    for (let i = idx + 3; i < lines.length; i++) if (NEXT_SECTION.test(lines[i])) { end = i; break; }
+    return { text: lines.slice(idx + 1, end).join('\n'), found: true };
+  }
+
+  /** Drop page numbers / running headers, rejoin hyphenated words and DOIs split across lines. */
+  function cleanLayoutArtifacts(text) {
+    const lines = text.split('\n').map(l => l.trim());
+    const counts = {};
+    lines.forEach(l => { const k = l.toLowerCase(); if (k) counts[k] = (counts[k] || 0) + 1; });
+    const out = [];
+    for (const line of lines) {
+      if (!line) { out.push(''); continue; }
+      const prev = out[out.length - 1];
+      if (/^(?:page\s+)?\d{1,4}$/i.test(line) && !/[-_]$/.test(prev || '')) continue;                          // bare page number
+      if (/^page\s+\d+\s+of\s+\d+$/i.test(line) || /^for peer review$/i.test(line)) continue;
+      if (REF_HEADING.test(line)) continue;                                                                    // running "References" header
+      if (counts[line.toLowerCase()] >= 3 && line.length <= 80 && !/\d{4}/.test(line) && !/press|university|publisher/i.test(line)) continue; // running header/footer
+      if (prev && /[A-Za-z]-$/.test(prev) && /^[a-z]/.test(line)) { out[out.length - 1] = prev.slice(0, -1) + line; continue; }   // line-break hyphen
+      if (prev && /(?:https?:\/\/\S+|\b10\.\d{4,9}\/\S*)[/_-]$/i.test(prev) && /^[a-z0-9]\S*$/i.test(line)) { out[out.length - 1] = prev + line; continue; } // DOI/URL split at a line break
+      out.push(line);
+    }
+    return out.join('\n');
+  }
+
+  const prepareInput = text => {
+    const ex = extractReferenceSection(normalizeInput(text));
+    return { text: cleanLayoutArtifacts(ex.text), foundSection: ex.found };
+  };
+
   function splitReferences(rawInput) {
-    const lines = normalizeInput(rawInput).split('\n');
+    const lines = prepareInput(rawInput).text.split('\n');
     const first = lines.find(l => l.trim().length > 3) || '';
     const numbered = /^\s*(\[\d+\]|\d{1,3}[.)]\s)/.test(first);
     let lastNum = 0;
@@ -188,9 +226,44 @@
     else { result.journal = name; result.type = 'article'; }
   }
 
+  function extractISBN(str) {
+    const m = String(str).match(/\bISBN(?:-1[03])?[:\s]*([0-9][0-9\- ]{8,16}[0-9Xx])\b/i) || String(str).match(/\b(97[89][- ]?(?:\d[- ]?){9}\d)\b/);
+    if (!m) return '';
+    const c = m[1].replace(/[^0-9Xx]/g, '').toUpperCase();
+    return c.length === 10 || c.length === 13 ? c : '';
+  }
+  const BOOK_RE = /\b(?:publisher|press|edition|isbn|monograph|textbook|handbook|dissertation|thesis|technical report|white paper|report no)\b|\b(?:Springer|Wiley|Elsevier|Routledge|Pearson|McGraw|MIT Press|CRC Press)\b/i;
+  function classify(raw, doi, isbn) {
+    if (isbn) return 'book';
+    if (/\b(?:rfc\s*\d+|iso(?:\/iec)?\s*\d+|nist|ieee\s+std|w3c)\b/i.test(raw)) return 'standard';
+    if (doi || /\b(?:journal|proceedings|conference|vol\.?|trans(?:actions)?\.?|letters)\b/i.test(raw)) return 'article';
+    return BOOK_RE.test(raw) ? 'book' : 'unknown';
+  }
+
+  /** Several plausible titles (best first) — lookups try each and keep the best-scoring record. */
+  function titleHypotheses(body, primary) {
+    const out = [];
+    const add = t => {
+      t = String(t || '').replace(/\s+/g, ' ').replace(/^[\s.,;:()-]+|[\s.,;:]+$/g, '').trim();
+      if (t.split(' ').length >= 2 && t.length >= 8 && !out.some(o => o.toLowerCase() === t.toLowerCase())) out.push(t);
+    };
+    const firstSentence = s => s.split(/(?<=[a-z0-9)][.!?])\s+(?=[A-Z])/)[0];
+    const afterBoundary = s => { const m = s.match(/\.\s+(?=[A-Z])/); return m ? s.slice(m.index + m[0].length) : ''; };
+    add(primary);
+    for (const m of body.matchAll(/"([^"]{6,}?)"/g)) add(m[1]);
+    const inM = body.match(/\bIn:?\s+/);
+    if (inM) add(firstSentence(afterBoundary(body.slice(0, inM.index))));
+    const y = body.match(/\b(?:1[5-9]|20)\d{2}[a-z]?\)?[.,]?\s+/);
+    if (y) add(firstSentence(body.slice(y.index + y[0].length)));
+    add(firstSentence(afterBoundary(body)));
+    const pieces = body.split(/[.!?]\s+/).filter(p => p.split(/\s+/).length >= 3);
+    if (pieces.length) add(pieces.reduce((a, b) => (b.split(/\s+/).length > a.split(/\s+/).length ? b : a)).replace(/^.*?\b(?:et al\.?|and)\b\s*/i, ''));
+    return out.slice(0, 5);
+  }
+
   // ── The parser ────────────────────────────────────────────────────────────
   function emptyEntry(raw) {
-    return { type: 'misc', authors: [], title: '', journal: '', booktitle: '', publisher: '', year: '', volume: '', number: '', pages: '', address: '', editor: '', note: '', doi: '', arxiv: '', url: '', raw };
+    return { type: 'misc', authors: [], title: '', journal: '', booktitle: '', publisher: '', year: '', volume: '', number: '', pages: '', address: '', editor: '', note: '', doi: '', arxiv: '', isbn: '', url: '', raw, kind: 'unknown', titleCandidates: [] };
   }
   const PROTECT = s => s.replace(/\b(\p{Lu})\./gu, '$1\u0001').replace(/\bet al\./gi, m => m.replace('.', '\u0001'))
                         .replace(/\b(vol|no|pp|p|ed|eds|ca|vs|fig|dept|univ|proc|trans|int|j|conf|comput|syst|netw|commun|lett|rev|sci|technol|eng|mag|natl|acad)\./gi, m => m.replace('.', '\u0001'));
@@ -201,6 +274,7 @@
     const r = emptyEntry(raw);
     r.doi = extractDOI(raw) || '';
     r.arxiv = extractArXiv(raw) || '';
+    r.isbn = extractISBN(raw);
     const urlM = raw.match(/https?:\/\/(?!doi\.org)\S+/i);
     if (urlM) r.url = urlM[0].replace(/[.,;)]+$/, '');
     const body = raw.replace(/https?:\/\/\S+|\bdoi:\s*10\.\S+|\b10\.\d{4,9}\/\S+/gi, ' ').replace(/\barxiv:?\s*\d{4}\.\d{4,5}(v\d+)?/gi, ' ')
@@ -254,13 +328,16 @@
       else if (PUBLISHER_RE.test(venueText)) { r.type = 'book'; r.publisher = (venueText.match(/(?:[A-Z][\w&.' -]+:\s*)?([A-Z][\w&.' -]*(?:Press|Springer|Wiley|Elsevier|Publishers?|Publishing|Publications)[\w. -]*)/) || [])[1] || ''; }
     }
     if (r.type === 'article' && !r.volume && !r.pages && !r.number && r.arxiv) r.type = 'misc';
+    r.kind = classify(raw, r.doi, r.isbn);
+    if (r.kind === 'book' && !r.journal && !r.booktitle && r.type !== 'inproceedings') r.type = 'book';
+    r.titleCandidates = titleHypotheses(body, r.title);
     return r;
   }
   function RESTORE_ALL(arr) { return arr.map(RESTORE); }
 
   Object.assign(AC, {
     normalizeInput, stripDiacritics, normWord, extractDOI, extractArXiv,
-    splitReferences, stripMarker, detectFormat, parseAuthors, personToBib, familyName, parseReference, emptyEntry
+    splitReferences, prepareInput, extractReferenceSection, cleanLayoutArtifacts, extractISBN, stripMarker, detectFormat, parseAuthors, personToBib, familyName, parseReference, emptyEntry
   });
   if (typeof module !== 'undefined' && module.exports) module.exports = AC;
 })(typeof globalThis !== 'undefined' ? globalThis : this);

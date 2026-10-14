@@ -31,6 +31,12 @@
     const N = [...new Set(needle)];
     return N.length ? N.filter(w => hay.has(w)).length / N.length : 0;
   };
+  /** One normalised title contains the other (>= 24 chars) — e.g. subtitle present on only one side. */
+  function containsTitle(a, b) {
+    const x = AC.normWord(a), y = AC.normWord(b);
+    if (!x || !y || Math.min(x.length, y.length) < 20) return false;
+    return x.includes(y) || y.includes(x);
+  }
   const exactTitle = (a, b) => !!a && !!b && AC.normWord(a) === AC.normWord(b);
 
   /**
@@ -41,13 +47,23 @@
   function scoreCandidate(parsed, cand) {
     const rawSet = new Set(tokens(parsed.raw));
     const candTitle = tokens(cand.title);
-    const jac = parsed.title ? jaccard(tokens(parsed.title), candTitle) : 0;
+    // Try every title hypothesis from the parser and keep the best (the parse of a messy reference is often wrong).
+    const hyps = (parsed.titleCandidates && parsed.titleCandidates.length ? parsed.titleCandidates : [parsed.title]).filter(Boolean);
+    let jac = 0, exact = false, contained = false;
+    for (const h of hyps) {
+      jac = Math.max(jac, jaccard(tokens(h), candTitle));
+      if (exactTitle(h, cand.title)) exact = true;
+      if (containsTitle(h, cand.title)) contained = true;
+    }
     // Coverage of the candidate's title inside the raw text rescues a mis-parsed title,
     // but short titles ("The Digital Era") are contained in almost any text, so scale by length.
     const cov = coverage(candTitle, rawSet) * Math.min(1, candTitle.length / 4);
-    const exact = exactTitle(parsed.title, cand.title);
-    const covWeight = parsed.title ? (jac > 0.3 ? 0.9 : 0.6) : 0.95;
-    const title = exact ? 1 : Math.max(jac, cov * covWeight);
+    const covWeight = hyps.length ? (jac > 0.3 ? 0.9 : 0.6) : 0.95;
+    // Registries often drop or add a subtitle: a long normalised containment counts as a strong (but not exact) match.
+    let title = exact ? 1 : contained ? Math.max(0.92, jac) : Math.max(jac, cov * covWeight);
+    // Found through the reference's own ISBN/DOI: if every word of the record's title appears in the text, that is strong evidence
+    // even when the parser picked the wrong title (short book titles are the usual victim).
+    if (cand.byIdentifier && coverage(candTitle, rawSet) >= 0.99) title = Math.max(title, 0.92);
 
     let authors = null;
     // Compare only as many authors as the reference actually lists ("Smith et al." lists one).
@@ -71,12 +87,12 @@
     let year = null;
     if (parsed.year && cand.year) {
       const d = Math.abs(+parsed.year - +cand.year);
-      year = d === 0 ? 1 : d === 1 ? 0.6 : 0;                      // online-first vs print year
+      year = d === 0 ? 1 : d === 1 ? 0.6 : cand.type === 'book' ? 0.3 : 0;   // books keep their first-edition year                      // online-first vs print year
     }
     const w = [[title, 0.6], [authors, 0.25], [year, 0.15]].filter(([v]) => v !== null);
     const total = w.reduce((s, [, k]) => s + k, 0);
     const score = w.reduce((s, [v, k]) => s + v * k, 0) / total;
-    return { score, title, authors, year, exact };
+    return { score, title, authors, year, exact, contained };
   }
 
   // ── Heuristic red flags (hints for a human, never a verdict) ─────────────
@@ -103,6 +119,6 @@
     return f;
   }
 
-  AC.match = { tokens, jaccard, coverage, scoreCandidate, redFlags, exactTitle };
+  AC.match = { tokens, jaccard, coverage, scoreCandidate, redFlags, exactTitle, containsTitle };
   if (typeof module !== 'undefined' && module.exports) module.exports = AC;
 })(typeof globalThis !== 'undefined' ? globalThis : this);
